@@ -3,12 +3,12 @@ const bcrypt = require('bcrypt');
 
 async function registerUser({ username, email, password }) {
     if (!username || !email || !password) {
-        throw new Error('缺少必要欄位');
+        throw new Error('Missing required fields');
     }
 
     const existingUser = await User.findOne({ $or: [{ username }, { email }] });
     if (existingUser) {
-        throw new Error('帳號或Email已被註冊');
+        throw new Error('Username or email already registered');
     }
 
     const saltRounds = 10;

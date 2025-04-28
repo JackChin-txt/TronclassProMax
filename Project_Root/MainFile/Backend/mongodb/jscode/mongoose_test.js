@@ -12,7 +12,7 @@ const {
 } = require('../models');
 
 function logError(error, step = 'Unknown Step') {
-    const logMessage = `[${new Date().toISOString()}] ❌ Step: ${step}\n${error.stack || error}\n\n`;
+    const logMessage = `[${new Date().toISOString()}] Step: ${step}\n${error.stack || error}\n\n`;
     fs.appendFileSync(path.join(__dirname, 'error.log'), logMessage);
 }
 
@@ -28,7 +28,7 @@ async function show_status() {
         const redemptionCount = await RedemptionRecord.countDocuments();
         const notificationCount = await Notification.countDocuments();
 
-        console.log('\n📊 Database Status:');
+        console.log('\nDatabase Status:');
         console.log(`- Users: ${userCount}`);
         console.log(`- Posts: ${postCount}`);
         console.log(`- Comments: ${commentCount}`);
@@ -36,31 +36,31 @@ async function show_status() {
         console.log(`- RedemptionRecords: ${redemptionCount}`);
         console.log(`- Notifications: ${notificationCount}`);
 
-        console.log('\n📋 Sample Data Preview:');
+        console.log('\nSample Data Preview:');
 
         const users = await User.find().limit(3).lean();
-        console.log('\n👤 Users:', users.map(u => ({
+        console.log('\nUsers:', users.map(u => ({
             username: u.username,
             email: u.email,
             points: u.points
         })));
 
         const posts = await Post.find().limit(3).populate('author', 'username').lean();
-        console.log('\n📝 Posts:', posts.map(p => ({
+        console.log('\nPosts:', posts.map(p => ({
             title: p.title,
             author: p.author?.username,
             tags: p.tags
         })));
 
         const comments = await Comment.find().limit(3).populate('author', 'username').populate('postId', 'title').lean();
-        console.log('\n💬 Comments:', comments.map(c => ({
+        console.log('\nComments:', comments.map(c => ({
             postTitle: c.postId?.title,
             author: c.author?.username,
             content: c.content
         })));
 
         const rewards = await RewardItem.find().limit(3).populate('provider', 'username').lean();
-        console.log('\n🎁 RewardItems:', rewards.map(r => ({
+        console.log('\nRewardItems:', rewards.map(r => ({
             name: r.name,
             pointsRequired: r.pointsRequired,
             quantity: r.quantity,
@@ -68,7 +68,7 @@ async function show_status() {
         })));
 
         const redemptions = await RedemptionRecord.find().limit(3).populate('userId', 'username').populate('rewardItemId', 'name').lean();
-        console.log('\n🎟️ RedemptionRecords:', redemptions.map(r => ({
+        console.log('\nRedemptionRecords:', redemptions.map(r => ({
             user: r.userId?.username,
             reward: r.rewardItemId?.name,
             pointsSpent: r.pointsSpent,
@@ -76,17 +76,17 @@ async function show_status() {
         })));
 
         const notifications = await Notification.find().limit(3).populate('recipient', 'username').populate('buyer', 'username').lean();
-        console.log('\n🔔 Notifications:', notifications.map(n => ({
+        console.log('\nNotifications:', notifications.map(n => ({
             recipient: n.recipient?.username,
             buyer: n.buyer?.username,
             message: n.message
         })));
 
     } catch (err) {
-        console.error('❌ Error fetching database status:', err);
+        console.error('Error fetching database status:', err);
     } finally {
         await mongoose.disconnect();
-        console.log('🔒 Disconnected from database (after showing status)');
+        console.log('Disconnected from database (after showing status)');
     }
 }
 
@@ -99,9 +99,9 @@ async function delete_all() {
         await RewardItem.deleteMany({});
         await RedemptionRecord.deleteMany({});
         await Notification.deleteMany({});
-        console.log('✅ All test data has been successfully deleted');
+        console.log('All test data has been successfully deleted');
     } catch (err) {
-        console.error('❌ Error deleting test profile:', err);
+        console.error('Error deleting test profile:', err);
     } finally {
         await mongoose.disconnect();
         console.log('🔒 Disconnected from database');
@@ -167,12 +167,12 @@ async function add_test() {
           message: 'Your reward is being processed.'
         });
 
-        console.log('✅ All test data has been successfully created');
+        console.log('All test data has been successfully created');
     } catch (err) {
-        console.error('❌ Error creating test profile:', err.message);
+        console.error('Error creating test profile:', err.message);
     } finally {
         await mongoose.disconnect();
-        console.log('🔒 Disconnected from database');
+        console.log('Disconnected from database');
         await show_status();
     }
 }
@@ -187,5 +187,5 @@ if (action === 'add') {
 } else if (action === 'show') {
     show_status();
 } else {
-    console.log('⚠️  Please provide a valid action: add / delete / show');
+    console.log('Please provide a valid action: add / delete / show');
 }
