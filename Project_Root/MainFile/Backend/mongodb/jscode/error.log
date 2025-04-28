@@ -30,3 +30,23 @@ MongoServerError: E11000 duplicate key error collection: myDatabase.users index:
     at async executeOperation (C:\Users\su\Desktop\github projects\TronclassProMax\Project_Root\MainFile\Backend\node_modules\mongodb\lib\operations\execute_operation.js:75:16)
     at async Collection.insertOne (C:\Users\su\Desktop\github projects\TronclassProMax\Project_Root\MainFile\Backend\node_modules\mongodb\lib\collection.js:157:16)
 
+[2025-04-26T09:27:52.865Z] ❌ Step: Create Notification
+MongoNotConnectedError: Client must be connected before running operations
+    at autoConnect (C:\Users\leoyu\OneDrive\Desktop\TronclassProMax\Project_Root\MainFile\Backend\mongodb\node_modules\mongodb\lib\operations\execute_operation.js:95:19)
+    at executeOperation (C:\Users\leoyu\OneDrive\Desktop\TronclassProMax\Project_Root\MainFile\Backend\mongodb\node_modules\mongodb\lib\operations\execute_operation.js:38:40)
+    at Collection.insertOne (C:\Users\leoyu\OneDrive\Desktop\TronclassProMax\Project_Root\MainFile\Backend\mongodb\node_modules\mongodb\lib\collection.js:157:63)
+    at NativeCollection.<computed> [as insertOne] (C:\Users\leoyu\OneDrive\Desktop\TronclassProMax\Project_Root\MainFile\Backend\mongodb\node_modules\mongoose\lib\drivers\node-mongodb-native\collection.js:246:33)
+    at Model.$__handleSave (C:\Users\leoyu\OneDrive\Desktop\TronclassProMax\Project_Root\MainFile\Backend\mongodb\node_modules\mongoose\lib\model.js:375:33)
+    at Model.$__save (C:\Users\leoyu\OneDrive\Desktop\TronclassProMax\Project_Root\MainFile\Backend\mongodb\node_modules\mongoose\lib\model.js:497:8)
+    at C:\Users\leoyu\OneDrive\Desktop\TronclassProMax\Project_Root\MainFile\Backend\mongodb\node_modules\kareem\index.js:387:18
+    at C:\Users\leoyu\OneDrive\Desktop\TronclassProMax\Project_Root\MainFile\Backend\mongodb\node_modules\kareem\index.js:113:15
+    at process.processTicksAndRejections (node:internal/process/task_queues:85:11)
+
+[2025-04-26T09:28:50.363Z] ❌ Step: Create User2
+MongoServerError: E11000 duplicate key error collection: myDatabase.users index: username_1 dup key: { username: "testuser2" }
+    at InsertOneOperation.execute (C:\Users\leoyu\OneDrive\Desktop\TronclassProMax\Project_Root\MainFile\Backend\mongodb\node_modules\mongodb\lib\operations\insert.js:51:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async tryOperation (C:\Users\leoyu\OneDrive\Desktop\TronclassProMax\Project_Root\MainFile\Backend\mongodb\node_modules\mongodb\lib\operations\execute_operation.js:207:20)
+    at async executeOperation (C:\Users\leoyu\OneDrive\Desktop\TronclassProMax\Project_Root\MainFile\Backend\mongodb\node_modules\mongodb\lib\operations\execute_operation.js:75:16)
+    at async Collection.insertOne (C:\Users\leoyu\OneDrive\Desktop\TronclassProMax\Project_Root\MainFile\Backend\mongodb\node_modules\mongodb\lib\collection.js:157:16)
+
