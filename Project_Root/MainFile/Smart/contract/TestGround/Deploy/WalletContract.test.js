@@ -6,7 +6,7 @@ describe("WalletContract", function () {
 
   beforeEach(async function () {
     // 獲取合約工廠和帳號
-    WalletContract = await ethers.getContractFactory("WalletContract");
+    WalletContract = await ethers.getContractFactory("waller_contract_test");
     [owner, addr1, addr2] = await ethers.getSigners();
 
     // 部署合約
