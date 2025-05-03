@@ -1,0 +1,6 @@
+# Node.js 套件
+/node_modules
+
+# Hardhat 產出
+/artifacts
+/cache

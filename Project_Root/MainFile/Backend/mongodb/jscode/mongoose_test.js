@@ -104,7 +104,7 @@ async function delete_all() {
         console.error('Error deleting test profile:', err);
     } finally {
         await mongoose.disconnect();
-        console.log('🔒 Disconnected from database');
+        console.log('Disconnected from database');
         await show_status();
     }
 }
