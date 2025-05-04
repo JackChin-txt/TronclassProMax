@@ -6,12 +6,14 @@ describe("WalletContract", function () {
 
   beforeEach(async function () {
     // 獲取合約工廠和帳號
-    WalletContract = await ethers.getContractFactory("waller_contract_test");
+    WalletContract = await ethers.getContractFactory("WalletContract");
     [owner, addr1, addr2] = await ethers.getSigners();
 
     // 部署合約
     walletContract = await WalletContract.deploy();
-    await walletContract.deployed();
+    //await walletContract.deployed(); // this line is wrong while testing please explain what is this and why this is here
+    //line 14 is not valid in ethers.js V6   by.jack
+    await walletContract.waitForDeployment();
   });
 
   it("Should allow owner to mint tokens and emit Mint event", async function () {
