@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>登入系統（學生/老師）</title>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  <style>
+    body {
+      font-family: 'Arial';
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-top: 80px;
+      background-color: #f0f2f5;
+    }
+    h1 {
+      color: #333;
+    }
+    select, button {
+      margin-top: 15px;
+      padding: 10px 20px;
+      font-size: 16px;
+    }
+    #status {
+      margin-top: 25px;
+      color: #007700;
+      font-weight: bold;
+      white-space: pre-line;
+    }
+    #logoutBtn {
+      display: none;
+      background-color: #cc4444;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <h1>身份登入系統</h1>
+
+  <button id="connectWalletBtn">1️⃣ 使用 MetaMask 連線</button>
+  <p id="walletAddress"></p>
+
+  <label for="role" style="margin-top: 20px;">2️⃣ 請選擇您的身份：</label>
+  <select id="role">
+    <option value="student">學生</option>
+    <option value="teacher">老師</option>
+  </select>
+
+  <button id="nextBtn">下一步 ➡️ 進入討論區</button>
+
+  <p id="status"></p>
+
+  <script>
+    const connectWalletBtn = document.getElementById("connectWalletBtn");
+    const nextBtn = document.getElementById("nextBtn");
+    const status = document.getElementById("status");
+    const roleSelect = document.getElementById("role");
+    const walletAddressText = document.getElementById("walletAddress");
+
+    let userAddress = null;
+
+    connectWalletBtn.addEventListener("click", async () => {
+      if (typeof window.ethereum === "undefined") {
+        status.innerText = "請先安裝 MetaMask 擴充功能。";
+        return;
+      }
+
+      try {
+        const accounts = await ethereum.request({ method: "eth_requestAccounts" });
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        const signer = provider.getSigner();
+        userAddress = await signer.getAddress();
+        walletAddressText.innerText = `已連線錢包：${userAddress}`;
+        status.innerText = "MetaMask 錢包連線成功，請選擇身份並點擊下一步。";
+      } catch (err) {
+        status.innerText = "錢包連線失敗或使用者拒絕請求。";
+      }
+    });
+
+    nextBtn.addEventListener("click", () => {
+      if (!userAddress) {
+        status.innerText = "請先完成 MetaMask 錢包連線！";
+        return;
+      }
+
+      const role = roleSelect.value === "teacher" ? "老師" : "學生";
+      localStorage.setItem("userAddress", userAddress);
+      localStorage.setItem("userRole", role);
+      window.location.href = "disscuss.html";
+    });
+  </script>
+</body>
+</html>
