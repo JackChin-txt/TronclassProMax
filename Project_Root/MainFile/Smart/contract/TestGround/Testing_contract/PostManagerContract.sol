@@ -70,20 +70,30 @@ contract PostManager
         emit PostReply(postID, RID, msg.sender, CID);
     }
     event PostReply(uint256 indexed postID ,uint256 indexed replyID , address indexed replier , string CID);
-    //TODO
-    /*
+    
     function DeletePost(string calldata postID) external
     {
-
+        require(postID > 0 && postID < nextID, "Post does not exist"); //確認貼文存在(postID有效(>0)而且<nextID)
+        Post storage post = PostList[postID];
+        require(post.Author == msg.sender, "Only the author can delete the post"); //檢查權限(只有貼文作者可以刪除)
+        delete PostList[postID]; //清空 PostList[postID] 中的數據(重至為0)
+        emit PostDeleted(postID, msg.sender, post.CID);
     }
-    event PostDeleted(uint256 indexed postID , address indexed author , string CID);
+    event PostDeleted(uint256 indexed postID , address indexed author , string CID); //發出PostDeleted事件，記錄被刪的貼文ID、作者地址、原CID
 
     function EditPost(string calldata postID) external
     {
-    
+        require(postID > 0 && postID < nextID, "Post does not exist"); //確認貼文存在
+        Post storage post = PostList[postID];
+        require(post.Author == msg.sender, "Only the author can edit the post"); //檢查權限
+        post.CID = newCID; //更新貼文的 CID（指向新內容）
+        post.TimeStamp = block.timestamp;
+        emit PostEditted(postID, msg.sender, newCID);
     }
-    event PostEditted(uint256 indexed postID , address indexed author , string CID);
+    event PostEditted(uint256 indexed postID , address indexed author , string CID); //發出PostEditted事件，記錄被改的貼文ID、作者地址、原CID
     
+    //TODO
+    /*
     */
 
     
