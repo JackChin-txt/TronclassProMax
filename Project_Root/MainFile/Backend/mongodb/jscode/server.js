@@ -1,6 +1,12 @@
 const express = require('express');
+const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
+
+require('dotenv').config({ path: '../.env' });
+
 const { registerUser } = require('./controllers/registerUser');
+const loginUser = require('./controllers/loginUser');
+
 const app = express();
 const PORT = 3000;
 
@@ -12,6 +18,7 @@ mongoose.connect(uri)
 
 app.use(express.json());
 
+/*---register api---*/
 app.post('/api/register', async (req, res) => {
     try {
         const newUser = await registerUser(req.body);
@@ -21,6 +28,9 @@ app.post('/api/register', async (req, res) => {
         res.status(400).json({ message: error.message });
     }
 });
+
+/*---login api---*/
+app.post('/api/login', loginUser);
 
 app.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}`);
