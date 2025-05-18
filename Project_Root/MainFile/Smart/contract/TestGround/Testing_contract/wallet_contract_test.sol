@@ -109,7 +109,7 @@ contract wallet_contract_test is ERC20, Ownable
 
 
     //TODO for future
-    /*function devay(address user) internal
+    /*function decay(address user) internal
     {
         
     }*/

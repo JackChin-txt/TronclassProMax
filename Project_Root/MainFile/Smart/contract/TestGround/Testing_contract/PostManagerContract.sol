@@ -56,11 +56,11 @@ contract PostManager
     {
         uint256 ID = nextID++;
         PostList[ID] = Post(msg.sender,CID, block.timestamp);
-        emit PostCreated(ID, msg.sender, CID);
+        emit PostCreated(ID, msg.sender, CID, ID);
     }
     //indexed is a topic for event, it can use for faster tracking
     //so postID and author can be used to search post
-    event PostCreated(uint256 indexed postID , address indexed author , string CID);
+    event PostCreated(uint256 indexed postID , address indexed author , string indexed CID, uint post_ID);
 
     function ReplyPost(string calldata CID, uint256 postID) external
     {
