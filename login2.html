@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>登入系統（學生/老師）</title>
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js">
+    
+</script>
+<style>
+    body {
+    font-family: 'Arial';
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 80px;
+    background-color: #f0f2f5;
+    }
+    h1 {
+    color: #333;
+    }
+    input, select, button {
+    margin-top: 10px;
+    padding: 10px;
+    font-size: 16px;
+    width: 250px;
+    }
+    #walletAddress {
+    margin-top: 20px;
+    font-weight: bold;
+    }
+</style>
+</head>
+<body>
+<h1>登入系統（學生/老師）</h1>
+
+<!-- 身份 -->
+<select id="roleSelect" onchange="Role()">
+    <option value="student">學生</option>
+    <option value="teacher">老師</option>
+</select>
+
+<!-- 學生 -->
+<div id="studentLoginSection">
+    <input type="text" id="studentID" placeholder="學號">
+    <br>
+    <input type="password" id="studentPass" placeholder="密碼">
+</div>
+
+<!-- 老師 -->
+<div id="teacherLoginSection">
+    <input type="text" id="teacherID" placeholder="教職員編號">
+    <br>
+    <input type="password" id="teacherPass" placeholder="密碼">
+</div>
+
+<!-- metamask -->
+<button onclick="connectWallet()">🔌 連線MetaMask錢包</button>
+<div id="walletAddress">尚未連線</div>
+
+<!-- login -->
+<button onclick="login()">登入</button>
+<button id="goDiscussBtn" style="display:none;" onclick="goToDiscuss()">➡️ 進入討論區</button>
+
+<!-- if no aacount -->
+<p style="margin-top: 10px;">
+    還沒有帳號？<a href="register2.html">點我註冊</a>
+</p>
+
+<script>
+//role
+function Role(){
+    const role = document.getElementById("roleSelect").value;
+    document.getElementById("studentLoginSection").style.display = role === "student" ? "block" : "none";
+    document.getElementById("teacherLoginSection").style.display = role === "teacher" ? "block" : "none";
+}
+// wallet
+async function connectWallet() {
+    if (typeof window.ethereum === "undefined") {
+        alert("請安裝 MetaMask 擴充功能！");
+        return;
+    }
+
+    try {
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        await provider.send("eth_requestAccounts", []);
+        const signer = provider.getSigner();
+        const address = await signer.getAddress();
+        document.getElementById("walletAddress").innerText = `已連線：${address}`;
+        localStorage.setItem("userAddress", address);
+    } catch (error) {
+        console.error(error);
+        alert("連線失敗，請檢查 MetaMask 狀態。");
+    }
+}
+
+function login(){
+    const role = document.getElementById("roleSelect").value;
+    const allUsers = JSON.parse(localStorage.getItem("userData") || "{}");
+    const currentAddress = localStorage.getItem("userAddress");
+
+    if (!currentAddress) {
+        alert("請先連接 MetaMask 錢包！");
+        return;
+    }
+
+    let inputID, inputPass;
+    if (role === "student") {
+        inputID = document.getElementById("studentID").value.trim();
+        inputPass = document.getElementById("studentPass").value.trim();
+    } else {
+        inputID = document.getElementById("teacherID").value.trim();
+        inputPass = document.getElementById("teacherPass").value.trim();
+    }
+
+    const user = allUsers[currentAddress];
+    if (!user) {
+        alert("找不到使用者，請先註冊。");
+        return;
+    }
+
+
+    const isValid =
+        (role === "student" && user.studentID === inputID && user.password === inputPass) ||
+        (role === "teacher" && user.teacherID === inputID && user.password === inputPass);
+
+    if (!isValid) {
+        alert("帳號或密碼錯誤！");
+        return;
+    }
+
+    // ✅ 成功登入後處理
+    // ✅ 成功登入後處理
+localStorage.setItem("userRole", user.role);
+localStorage.setItem("userAddress", currentAddress); // 強化保證 userAddress 有記錄
+alert("✅ 登入成功！");
+document.getElementById("goDiscussBtn").style.display = "inline-block";
+
+}
+
+
+function goToDiscuss() {
+    window.location.href = "discuss2.html";
+}
+
+Role();
+</script>
+
+</body>
+</html>
