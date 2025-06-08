@@ -20,4 +20,4 @@ async function registerUser({ username, email, walletId }) {
     return newUser;
 }
 
-module.exports = { registerUser };
+module.exports = registerUser;

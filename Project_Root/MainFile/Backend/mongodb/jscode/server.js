@@ -4,8 +4,10 @@ const mongoose = require('mongoose');
 
 require('dotenv').config({ path: '../.env' });
 
-const { registerUser } = require('./controllers/registerUser');
+const registerUser = require('./controllers/registerUser');
 const loginUser = require('./controllers/loginUser');
+const authenticateToken = require('./middleware/authenticateToken');
+const createPost = require('./controllers/createPost');
 
 const app = express();
 const PORT = 3000;
@@ -32,6 +34,15 @@ app.post('/api/register', async (req, res) => {
 /*---login api---*/
 app.post('/api/login', loginUser);
 
+
+/*---post api---*/
+app.post('/api/post', authenticateToken, createPost);
+//app.get('/api/post', getPost);
+
+
 app.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}`);
 });
+
+
+

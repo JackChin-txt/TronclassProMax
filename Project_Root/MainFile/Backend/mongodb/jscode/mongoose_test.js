@@ -117,14 +117,14 @@ async function add_test() {
         user = await User.create({
           username: 'testuser',
           email: 'test@example.com',
-          password: 'secure123',
+          walletId: 'secure123',
           points: 100
         });
 
         user2 = await User.create({
           username: 'testuser2',
           email: 'test2@example.com',
-          password: 'testpassword2',
+          walletId: 'testpassword2',
           points: 1
         });
 
