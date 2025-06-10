@@ -23,13 +23,13 @@ interface IWalletContract
 
 interface IPostManager 
 {
-    function posts(uint256 postId) external view returns (
+    function getPosts(uint256 postId) external view returns (
         address author,
         string memory cid,
         uint256 timestamp
     );
     function getReply(uint256 postId, uint256 replyId) external view returns (
-        uint256 id,
+        uint256 replyID,
         string memory cid,
         address replier,
         uint256 timestamp
@@ -53,15 +53,18 @@ contract QnAManager is Ownable
         postMgr = IPostManager(_postMgr);
     }
 
-    function BestAns(uint256 postID,uint256 amount , address winner) external onlyOwner
+    function selectBestAns(uint256 postID,uint256 replyID,uint256 amount) external onlyOwner
     {
+        (address author,,) = postMgr.getPosts(postID);
+        require(msg.sender == author,"not post author");
         require(!rewarded[postID], "Already claimed reward");
-        walletCt.Mint(winner,amount);
-        uint256 replyID = postMgr.getReply(postID, winner);
+        (,, address replier, ) = postMgr.getReply(postID,replyID);
+        walletCt.Mint(replier,amount);
         rewarded[postID] = true;
         bestReply[postID] = replyID;
+        emit BestAnsSelected(postID, replyID, replier, amount);
     }
-    event BestAnsSelected(uint256 indexed postID, uint256 indexed replyID, address indexed winner, uint256 amount);
+    event BestAnsSelected(uint256 indexed postID, uint256 indexed replyID, address indexed replier, uint256 amount);
 
     function getRewardInfo(uint256 postID) external view returns(bool result)
     {
@@ -84,9 +87,12 @@ contract MyWallet
 
 contract MyPostMgr
 {
-    function getReplyID_Deploy(address _postMgr)external
+    function getReplyID_Deploy(address _postMgr,uint256 postID, uint256 replyID)external view
     {
-        
+        IPostManager(_postMgr).getReply(postID, replyID);
     }
-
+    function getPosts_Deploy(address _postMgr, uint256 postID)external view
+    {
+        IPostManager(_postMgr).getPosts(postID);
+    }
 }

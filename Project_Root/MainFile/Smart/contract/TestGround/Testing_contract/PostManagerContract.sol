@@ -28,15 +28,26 @@ contract PostManager
 {
     uint256 public nextID = 1;
 
+
+    //JACK:   
+    // Author = the address who posted this post
+    // CID = create id = backendID for post
+    // timestamp = time when this post go live
+
     struct Post
     {
         address Author;
         string CID;
         uint256 TimeStamp;
     }
-    
+
+    //a lsit of post
     mapping(uint256 => Post) public PostList;
 
+    //JACK:
+    // Replyer = the address who reply
+    // CID = create id = backendID for post
+    // timestamp = time of this reply 
     struct Reply
     {
         address Replyer;
@@ -47,6 +58,8 @@ contract PostManager
     //tract reply's id for each post
     mapping(uint256 => uint256) public nextReplyID;
     //store reply log
+    
+    // JACK:postID -> replyID -> info of reply
     mapping(uint256 => mapping(uint256 => Reply)) public replies;
 
     //calldata is a prompt for data location
@@ -92,9 +105,10 @@ contract PostManager
     }
     event PostEditted(uint256 indexed postID , address indexed author , string CID); //發出PostEditted事件，記錄被改的貼文ID、作者地址、原CID
     
-    function getReplyID(uint256 postID)external view returns(uint256 replyID)
+    function getReplyID(uint256 postID,uint replyId)external view returns(uint256 replyID,string memory CID, address replier, uint256 timestamp)
     {
-        
+        Reply storage r = replies[postID][replyID];
+        return(replyID,r.CID,r.Replyer,r.TimeStamp);
     }
 
     //TODO
