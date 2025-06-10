@@ -1,6 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
+/*
+Developer note
+interface
+    Must know while using:
+        it is a tool to call other contract's funtion
+        it need two contract to work, one for main、one for deploy
+        while deploying contract, deploy the one that interface connected to first, then the one that have interface(cuz u need the address of the contract)
+    Coding thing:
+        the second contract need to get the address of the contract that is connected with
+        
 
+*/
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 
@@ -28,26 +39,54 @@ interface IPostManager
 
 contract QnAManager is Ownable
 {
-    IWalletContract public token;               // send WalletContract in after deploy
-    IPostManager   public postMgr;              // send PostManager in after deploy
-    mapping(uint256=>bool)   public rewarded;   // postId  -> have reward been given?
-    mapping(uint256=>uint256) public bestReply; // postId  -> replyId
-    event BestAnsSeleted(uint256 postID, uint256 replyID, address winner, uint256 amount);
+    IWalletContract public walletCt;               // send WalletContract in after deploy, like calling a class's instance
+    IPostManager   public postMgr;                  // send PostManager in after deploy, like calling a class's instance
+    mapping(uint256=>bool)   public rewarded;       // postId  -> have reward been given?
+    mapping(uint256=>uint256) public bestReply;     // postId  -> replyId
+    //maybe we have to change this two thing, we may have mulitple answer that is good
 
+    
     constructor(address _wallet, address _postMgr)
     Ownable(msg.sender) 
     {
-        token   = IWalletContract(_wallet);
+        walletCt   = IWalletContract(_wallet);
         postMgr = IPostManager(_postMgr);
     }
 
-    function BestAns(uint256 amount , address winnner) external onlyOwner
+    function BestAns(uint256 postID,uint256 amount , address winner) external onlyOwner
     {
-
+        require(!rewarded[postID], "Already claimed reward");
+        walletCt.Mint(winner,amount);
+        uint256 replyID = postMgr.getReply(postID, winner);
+        rewarded[postID] = true;
+        bestReply[postID] = replyID;
     }
+    event BestAnsSelected(uint256 indexed postID, uint256 indexed replyID, address indexed winner, uint256 amount);
 
     function getRewardInfo(uint256 postID) external view returns(bool result)
     {
         return rewarded[postID];
     }
+
+    function getGestReplyID(uint256 postID) external view returns(uint256 replyID)
+    {
+        return bestReply[postID];
+    }
+}
+
+contract MyWallet
+{
+    function mintDeploy(address _wallet, address to, uint256 amount) external
+    {
+        IWalletContract(_wallet).Mint(to, amount);
+    }
+}
+
+contract MyPostMgr
+{
+    function getReplyID_Deploy(address _postMgr)external
+    {
+        
+    }
+
 }

@@ -92,6 +92,11 @@ contract PostManager
     }
     event PostEditted(uint256 indexed postID , address indexed author , string CID); //發出PostEditted事件，記錄被改的貼文ID、作者地址、原CID
     
+    function getReplyID(uint256 postID)external view returns(uint256 replyID)
+    {
+        
+    }
+
     //TODO
     /*
     */
