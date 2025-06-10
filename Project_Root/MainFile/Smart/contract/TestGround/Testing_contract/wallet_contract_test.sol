@@ -30,12 +30,13 @@ contract wallet_contract_test is ERC20, Ownable
     //for decay
     mapping(address => uint256) private _lastSpend;
     uint private decayTime = 120;
+
     // constructor
     constructor() ERC20("MyToken", "MTK")  Ownable(msg.sender)
     {
         STARTING_MINT = 100;
         totalMinted = 0;
-        decayTime = 120;
+        decayTime = 120 days;
     }
 
     // mint  ( owner)
@@ -43,6 +44,7 @@ contract wallet_contract_test is ERC20, Ownable
     {
         //_mint is a function built in ERC20
         _mint(to, amount);
+        totalMinted += amount;
         emit MintEvent(to,amount);
     }
     event MintEvent(address indexed to, uint256 amount);
