@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>註冊系統（學生/老師）</title>
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<style>
+body {
+    font-family: 'Arial';
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 80px;
+    background-color: #f0f2f5;
+}
+input, select, button {
+    margin-top: 10px;
+    padding: 10px;
+    font-size: 16px;
+    width: 250px;
+}
+</style>
+</head>
+<body>
+<h1>註冊系統（學生/老師）</h1>
+
+<select id="roleSelect" onchange="Role()">
+<option value="student">學生</option>
+<option value="teacher">老師</option>
+</select>
+
+<input type="text" id="name" placeholder="姓名">
+
+<!-- 學生欄位 -->
+<div id="student">
+<input type="text" id="department" placeholder="系級 (如：資工3A)">
+<br>
+<input type="number" id="studentID" placeholder="學號">
+</div>
+
+<!-- 老師欄位 -->
+<div id="teacher" style="display: none;">
+<input type="number" id="teacherID" placeholder="教職員編號">
+</div>
+
+<input type="password" id="password" placeholder="密碼">
+<button onclick="connectWallet()">🔌 連線 MetaMask</button>
+<button onclick="register()">✅ 註冊帳號</button>
+
+<p id="status"></p>
+
+<script>
+let walletAddress = null;
+
+function Role() {
+    const role = document.getElementById("roleSelect").value;
+    document.getElementById("student").style.display = role === "student" ? "block" : "none";
+    document.getElementById("teacher").style.display = role === "teacher" ? "block" : "none";
+}
+
+async function connectWallet() {
+    if (!window.ethereum) {
+    alert("請安裝 MetaMask！");
+    return;
+    }
+
+    const provider = new ethers.providers.Web3Provider(window.ethereum);
+    await provider.send("eth_requestAccounts", []);
+    const signer = provider.getSigner();
+    walletAddress = await signer.getAddress();
+    localStorage.setItem("userAddress", walletAddress);
+    document.getElementById("status").innerText = `已連線錢包：${walletAddress}`;
+}
+
+function register() {
+    const role = document.getElementById("roleSelect").value;
+    const name = document.getElementById("name").value;
+    const password = document.getElementById("password").value;
+
+    if (!walletAddress) {
+    alert("請先連接 MetaMask！");
+    return;
+    }
+
+    if (!name || !password) {
+    alert("請填寫基本資料！");
+    return;
+    }
+
+    let user = {
+    name,
+    role,
+    password
+    };
+
+    if (role === "student") {
+    const department = document.getElementById("department").value;
+    const studentID = document.getElementById("studentID").value;
+    if (!department || !studentID) {
+        alert("請填寫學生欄位！");
+        return;
+    }
+    user.department = department;
+    user.studentID = studentID;
+    } else {
+    const teacherID = document.getElementById("teacherID").value;
+    if (!teacherID) {
+        alert("請填寫教師欄位！");
+        return;
+    }
+    user.teacherID = teacherID;
+    }
+
+    const allUsers = JSON.parse(localStorage.getItem("userData") || "{}");
+    allUsers[walletAddress] = user;
+    localStorage.setItem("userData", JSON.stringify(allUsers));
+
+    document.getElementById("status").innerText = "✅ 註冊成功！自動跳轉登入頁...";
+    setTimeout(() => {
+    window.location.href = "login2.html";
+    }, 1500);
+}
+
+Role();
+</script>
+</body>
+</html>
