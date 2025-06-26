@@ -1,3 +1,4 @@
+
 const axios = require('axios');
 
 const BASE_URL = 'http://localhost:3000';
@@ -16,6 +17,7 @@ const postData = {
 
 let token = '';
 let postId = '';
+let commentId = '';
 
 async function registerUser() {
   try {
@@ -23,7 +25,7 @@ async function registerUser() {
     console.log('Registered:', res.data);
   } catch (err) {
     if (err.response?.status === 409) {
-      console.log('User already exists, skipping registration.');
+      console.log('ℹUser already exists, skipping registration.');
     } else {
       throw err;
     }
@@ -54,17 +56,50 @@ async function addComment() {
   }, {
     headers: { Authorization: `Bearer ${token}` }
   });
-  console.log('Comment added:', res.data.comment.content);
+  commentId = res.data.comment._id;
+  console.log('Comment added:', commentId);
+}
+
+async function getCommentsForPost() {
+  const res = await axios.get(`${BASE_URL}/api/comments/post/${postId}`);
+  console.log(`Retrieved ${res.data.length} comment(s).`);
+}
+
+async function likeComment() {
+  const res = await axios.put(`${BASE_URL}/api/comments/${commentId}/like`, {}, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  console.log('Like toggled, total likes:', res.data.likes);
+}
+
+async function updateComment() {
+  const res = await axios.put(`${BASE_URL}/api/comments/${commentId}`, {
+    content: 'This comment has been updated.'
+  }, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  console.log('Comment updated:', res.data.comment.content);
+}
+
+async function deleteComment() {
+  const res = await axios.delete(`${BASE_URL}/api/comments/${commentId}`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  console.log('Comment deleted:', res.data.message);
 }
 
 (async () => {
   try {
-    console.log('Running Comment API test...\n');
+    console.log('Running full Comment API CRUD test...');
     await registerUser();
     await loginUser();
     await createPost();
     await addComment();
-    console.log('\nComment API test completed successfully.');
+    await getCommentsForPost();
+    await likeComment();
+    await updateComment();
+    await deleteComment();
+    console.log('\nAll Comment API operations completed successfully.');
   } catch (err) {
     console.error('Test failed:', err.response?.data || err.message);
   }

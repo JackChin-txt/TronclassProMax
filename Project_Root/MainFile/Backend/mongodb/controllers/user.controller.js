@@ -1,7 +1,7 @@
 const { User } = require('../models');
 
 async function register(req, res) {
-  const { username, email, walletId } = req.body;
+  const { username, email, walletId, role } = req.body;
 
   try {
     if (!username || !email || !walletId) {
@@ -13,7 +13,13 @@ async function register(req, res) {
       return res.status(409).json({ message: 'User already exists' });
     }
 
-    const newUser = await User.create({ username, email, walletId });
+    const newUser = await User.create({
+      username,
+      email,
+      walletId,
+      role: role || 'student'
+    });
+
     res.status(201).json({ message: 'User registered', userId: newUser._id });
   } catch (err) {
     console.error('Registration error:', err.message);
