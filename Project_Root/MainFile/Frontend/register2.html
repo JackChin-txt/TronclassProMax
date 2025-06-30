@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>註冊系統（學生/老師）</title>
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<style>
+body {
+    font-family: 'Arial';
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 80px;
+    background-color: #f0f2f5;
+}
+input, select, button {
+    margin-top: 10px;
+    padding: 10px;
+    font-size: 16px;
+    width: 250px;
+}
+</style>
+</head>
+<body>
+<h1>註冊系統（學生/老師）</h1>
+
+<select id="roleSelect" onchange="Role()">
+<option value="student">學生</option>
+<option value="teacher">老師</option>
+</select>
+
+<input type="text" id="name" placeholder="姓名">
+
+<!-- 學生欄位 -->
+<div id="student">
+<input type="text" id="department" placeholder="系組 (ex: 資工3A)">
+<br>
+<input type="number" id="studentID" placeholder="學號">
+</div>
+
+<!-- 老師欄位 -->
+<div id="teacher" style="display: none;">
+<input type="number" id="teacherID" placeholder="教職員編號">
+</div>
+
+<input type="email" id="email" placeholder="Email">
+<input type="password" id="password" placeholder="密碼 ( 從前編輯現在不僅用 )">
+<button onclick="connectWallet()">🔌 連線 MetaMask</button>
+<button onclick="register()">✅ 註冊帳號</button>
+
+<p id="status"></p>
+
+<script>
+let walletAddress = null;
+
+function Role() {
+    const role = document.getElementById("roleSelect").value;
+    document.getElementById("student").style.display = role === "student" ? "block" : "none";
+    document.getElementById("teacher").style.display = role === "teacher" ? "block" : "none";
+}
+
+async function connectWallet() {
+    if (!window.ethereum) {
+        alert("請安裝 MetaMask！");
+        return;
+    }
+    const provider = new ethers.providers.Web3Provider(window.ethereum);
+    await provider.send("eth_requestAccounts", []);
+    const signer = provider.getSigner();
+    walletAddress = await signer.getAddress();
+    document.getElementById("status").innerText = `已連線錢包：${walletAddress}`;
+}
+
+async function register() {
+    const name = document.getElementById("name").value;
+    const email = document.getElementById("email").value;
+
+    if (!walletAddress || !name || !email) {
+        alert("請填寫姓名、Email 與連接錢包！");
+        return;
+    }
+
+    const payload = {
+        username: name,
+        email: email,
+        walletId: walletAddress
+    };
+
+    try {
+        const response = await fetch("http://localhost:3000/api/auth/register", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (response.ok) {
+            document.getElementById("status").innerText = "✅ 註冊成功！將轉往登入...";
+            setTimeout(() => {
+                window.location.href = "login2.html";
+            }, 1500);
+        } else {
+            const data = await response.json();
+            alert(`註冊失敗：${data.message}`);
+        }
+    } catch (err) {
+        console.error(err);
+        alert("連線服務器失敗");
+    }
+}
+
+Role();
+</script>
+</body>
+</html>

@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>討論區 - 學生與老師</title>
+<style>
+body {
+    font-family: 'Arial';
+    background-color: #f0f2f5;
+    padding: 20px;
+}
+h1 {
+    color: #333;
+}
+#postForm, .question {
+    background: white;
+    padding: 15px;
+    margin-bottom: 20px;
+    border-radius: 8px;
+    box-shadow: 0 0 5px rgba(0,0,0,0.1);
+}
+textarea, input[type="text"] {
+    width: 100%;
+    margin-top: 10px;
+    padding: 10px;
+    font-size: 16px;
+}
+button {
+    margin-top: 10px;
+    padding: 8px 16px;
+    font-size: 14px;
+    background-color: #4caf50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+button:hover {
+    background-color: #45a049;
+}
+.reply {
+    background: #fafafa;
+    margin-top: 10px;
+    padding: 10px;
+    border-left: 3px solid #ccc;
+}
+#backBtn {
+    position: absolute;
+    right: 20px;
+    top: 20px;
+    background-color: #cc4444;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+#userInfo {
+    margin-bottom: 20px;
+    color: #444;
+    font-weight: bold;
+}
+</style>
+</head>
+<body>
+
+<button id="backBtn" onclick="goBack()">🔙 登出並返回登入頁</button>
+<h1>討論區</h1>
+<div id="userInfo"></div>
+
+<div id="postForm">
+<h3>發表問題</h3>
+<input type="text" id="title" placeholder="標題">
+<textarea id="content" rows="4" placeholder="請輸入問題內容..."></textarea>
+<button onclick="submitPost()">送出</button>
+</div>
+
+<div id="posts"></div>
+
+<script>
+const token = localStorage.getItem("authToken");
+const username = localStorage.getItem("username") || "未知用戶";
+
+if (!token) {
+    alert("請先登入！");
+    window.location.href = "login2.html";
+}
+
+function goBack() {
+    localStorage.clear();
+    window.location.href = 'login2.html';
+}
+
+document.getElementById("userInfo").innerText = `目前登入：${username}`;
+
+async function submitPost() {
+    const title = document.getElementById('title').value.trim();
+    const content = document.getElementById('content').value.trim();
+    if (!title || !content) return alert('請填寫標題與內容');
+
+    try {
+        const res = await fetch("http://localhost:3000/api/posts", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify({ title, content })
+        });
+
+        if (res.ok) {
+            document.getElementById('title').value = '';
+            document.getElementById('content').value = '';
+            loadPosts();
+        } else {
+            const data = await res.json();
+            alert("發文失敗：" + data.message);
+        }
+    } catch (err) {
+        alert("伺服器連線錯誤");
+    }
+}
+
+async function submitReply(postId) {
+    const inputId = `reply-${postId}`;
+    const text = document.getElementById(inputId).value.trim();
+    if (!text) return;
+
+    try {
+        const res = await fetch(`http://localhost:3000/api/reply`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify({ postId, text })
+        });
+
+        if (res.ok) {
+            loadPosts();
+        } else {
+            const data = await res.json();
+            alert("回覆失敗：" + data.message);
+        }
+    } catch (err) {
+        alert("伺服器錯誤");
+    }
+}
+
+async function loadPosts() {
+    try {
+        const res = await fetch("http://localhost:3000/api/posts", {
+            headers: { "Authorization": `Bearer ${token}` }
+        });
+        const posts = await res.json();
+
+        const container = document.getElementById('posts');
+        container.innerHTML = '';
+
+        posts.reverse().forEach(post => {
+            const div = document.createElement('div');
+            div.className = 'question';
+            div.innerHTML = `
+                <h3>${post.title}</h3>
+                <p>${post.content}</p>
+                <p><strong>作者：</strong>${post.author}</p>
+                <div>
+                    <input type="text" id="reply-${post._id}" placeholder="回覆這篇問題...">
+                    <button onclick="submitReply('${post._id}')">回覆</button>
+                </div>
+                ${post.replies.map(r => `<div class='reply'><p>${r.text}</p><small>回覆者：${r.author}</small></div>`).join('')}
+            `;
+            container.appendChild(div);
+        });
+    } catch (err) {
+        console.error(err);
+        alert("無法讀取討論文");
+    }
+}
+
+loadPosts();
+</script>
+</body>
+</html>
