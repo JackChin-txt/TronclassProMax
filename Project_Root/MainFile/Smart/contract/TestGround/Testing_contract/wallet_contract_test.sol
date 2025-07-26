@@ -24,8 +24,6 @@ contract wallet_contract_test is ERC20, Ownable
     uint256 private STARTING_MINT = 100;
     uint256 private totalMinted = 0;
     //mapping = hashtable address是key -> Int變數當value
-    //this will record everyone;s balance
-    mapping(address => uint256) private _balances;
     //record who spent their money last time
     //for decay
     mapping(address => uint256) private _lastSpend;
@@ -45,32 +43,20 @@ contract wallet_contract_test is ERC20, Ownable
         //_mint is a function built in ERC20
         _mint(to, amount);
         totalMinted += amount;
-        emit MintEvent(to,amount);
+        emit MintEvent(to,amount,balanceOf(to));
     }
-    event MintEvent(address indexed to, uint256 amount);
+    event MintEvent(address indexed to, uint256 amount, uint256 currentBal);
 
     // burn ( owner)
     function Burn(address from, uint256 amount) external onlyOwner 
     {
         //also burn is built in
+        require(balanceOf(from) >= amount, "Insufficient, not enough money.");
         _burn(from, amount);
-        emit BurnEvent(from, amount);
+        emit BurnEvent(from, amount, balanceOf(from));
+        emit LastSpendUpdate(from, block.timestamp);
     }
-    event BurnEvent(address indexed from, uint256 amount);
-
-    // trade (maybe just use transfer ?）
-    function Trade(address to, uint256 amount) external 
-    {
-        //need
-        require(balanceOf(msg.sender) >= amount, "Insufficient");
-        _transfer(msg.sender, to, amount);
-        emit TradeEvent(msg.sender, to, amount);
-        //update last spend & send a event out
-        _lastSpend[to] = block.timestamp;
-        emit LastSpendUpdate(to, block.timestamp);
-
-    }
-    event TradeEvent(address indexed from, address indexed to, uint256 amount);
+    event BurnEvent(address indexed from, uint256 amount,uint256 currentBal);
     event LastSpendUpdate(address indexed who, uint256 timeStamp);
 
     // view = it won't change any data in contract, can only read
@@ -101,7 +87,7 @@ contract wallet_contract_test is ERC20, Ownable
 
     function getAccountMoney(address who) external view returns(uint money)
     {
-        return _balances[who];
+        return balanceOf(who);
     }
 
     function getAccountLastTrade(address who) external view returns(uint time)
@@ -109,11 +95,13 @@ contract wallet_contract_test is ERC20, Ownable
         return _lastSpend[who];
     }
 
-
     //TODO for future
-    /*function decay(address user) internal
+    function decay(address user) external onlyOwner
     {
-        
-    }*/
-
+        require( balanceOf(user) > 0, "user's balance is 0.");
+        uint256 bal = balanceOf(user)/10;
+        _burn(user, bal);
+        emit DecayEvent(user, bal);
+    }
+    event DecayEvent(address indexed user, uint256 amount);
 }

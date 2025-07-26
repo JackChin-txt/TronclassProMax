@@ -18,7 +18,9 @@
   },
   "homepage": "https://github.com/JackChin-txt/TronclassProMax#readme",
   "devDependencies": {
+    "@nomicfoundation/hardhat-ethers": "^3.1.0",
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "ethers": "^6.15.0",
     "hardhat": "^2.23.0"
   },
   "dependencies": {

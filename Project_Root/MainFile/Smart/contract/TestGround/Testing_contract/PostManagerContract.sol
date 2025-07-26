@@ -26,10 +26,8 @@ Event
 */ 
 contract PostManager
 {
-    uint256 public nextID = 1;
-
-
-    //JACK:   
+    uint256 private nextID = 1;
+    mapping(string => uint256) private CIDtoPostID;
     // Author = the address who posted this post
     // CID = create id = backendID for post
     // timestamp = time when this post go live
@@ -42,9 +40,8 @@ contract PostManager
     }
 
     //a lsit of post
-    mapping(uint256 => Post) public PostList;
+    mapping(uint256 => Post) private PostList;
 
-    //JACK:
     // Replyer = the address who reply
     // CID = create id = backendID for post
     // timestamp = time of this reply 
@@ -53,68 +50,154 @@ contract PostManager
         address Replyer;
         string CID;
         uint256 TimeStamp;
+        uint256 editTimes;
     }
 
     //tract reply's id for each post
-    mapping(uint256 => uint256) public nextReplyID;
+    mapping(uint256 => uint256) private nextReplyID;
     //store reply log
     
     // JACK:postID -> replyID -> info of reply
-    mapping(uint256 => mapping(uint256 => Reply)) public replies;
+    mapping(uint256 => mapping(uint256 => Reply)) private replies;
 
-    //calldata is a prompt for data location
-    //storage(on chain) 、 memory(release after call like new & free) 、 calldata(call fome outter space , read only ,low gas cost)
-    
+    //  Author: who edit this post
+    //  editID: the ID of this edit
+    //  timestamp: time of this edit
+    struct Edit
+    {
+        address Author;
+        uint256 editID;
+        uint256 TimeStamp;
+    }
+
+    //tract the next EditID of different post
+    mapping(uint256 => uint256) private nextEditID;
+
+    //JACK: postID -> editID ->info of edit
+    mapping(uint256 => mapping(uint256 => Edit)) private Edits;
+
+
     function CreatePost(string calldata CID) external
     {
+        require(CIDtoPostID[CID] == 0 ,"post already exists");
         uint256 ID = nextID++;
+        CIDtoPostID[CID] = ID;
         PostList[ID] = Post(msg.sender,CID, block.timestamp);
-        emit PostCreated(ID, msg.sender, CID, ID);
+        nextReplyID[ID] = 0;
+        nextEditID[ID] = 0;
+        emit PostCreated(ID, msg.sender, CID);
     }
     //indexed is a topic for event, it can use for faster tracking
     //so postID and author can be used to search post
-    event PostCreated(uint256 indexed postID , address indexed author , string indexed CID, uint post_ID);
+    event PostCreated(uint256 indexed postID , address indexed author , string indexed CID);
 
     function ReplyPost(string calldata CID, uint256 postID) external
     {
         require(postID > 0 && postID < nextID,"Post dose not exist");
         uint256 RID = nextReplyID[postID]++;
-        replies[postID][RID] = Reply(msg.sender,CID,block.timestamp);
+        replies[postID][RID] = Reply(msg.sender,CID,block.timestamp,0);
         emit PostReply(postID, RID, msg.sender, CID);
     }
     event PostReply(uint256 indexed postID ,uint256 indexed replyID , address indexed replier , string CID);
-    
-    function DeletePost(string calldata postID) external
+
+    function EditPost(string calldata CID) external
     {
-        require(postID > 0 && postID < nextID, "Post does not exist"); //確認貼文存在(postID有效(>0)而且<nextID)
-        Post storage post = PostList[postID];
-        require(post.Author == msg.sender, "Only the author can delete the post"); //檢查權限(只有貼文作者可以刪除)
-        delete PostList[postID]; //清空 PostList[postID] 中的數據(重至為0)
-        emit PostDeleted(postID, msg.sender, post.CID);
+        require(CIDtoPostID[CID] != 0, "post dost not exisit.");
+        uint256 ID = CIDtoPostID[CID];
+        require(msg.sender == PostList[ID].Author,"Only author can delete this post");
+        uint256 editID = nextEditID[ID]++;
+        Edits[ID][editID] = Edit(msg.sender, editID, block.timestamp);
+        emit PostEdited(ID, msg.sender);
     }
-    event PostDeleted(uint256 indexed postID , address indexed author , string CID); //發出PostDeleted事件，記錄被刪的貼文ID、作者地址、原CID
+    event PostEdited(uint256 indexed postID, address indexed author);
 
-    function EditPost(string calldata postID) external
+    function DeletePost(string calldata CID) external
     {
-        require(postID > 0 && postID < nextID, "Post does not exist"); //確認貼文存在
-        Post storage post = PostList[postID];
-        require(post.Author == msg.sender, "Only the author can edit the post"); //檢查權限
-        post.CID = newCID; //更新貼文的 CID（指向新內容）
-        post.TimeStamp = block.timestamp;
-        emit PostEditted(postID, msg.sender, newCID);
+        require(CIDtoPostID[CID] != 0 && msg.sender == PostList[CIDtoPostID[CID]].Author ,"Post not found / Only author can delete this post");
+        uint256 ID = CIDtoPostID[CID];
+        delete PostList[ID];
+        for (uint256 index = 0; index < nextReplyID[ID]; index++) 
+        {
+            delete replies[ID][index];
+        }
+        delete nextReplyID[ID];
+        for (uint256 index = 0; index < nextEditID[ID]; index++) 
+        {
+            delete Edits[ID][index];
+        }
+        delete nextEditID[ID];
+        delete CIDtoPostID[CID];
+        emit PostDeleted(ID, msg.sender);
     }
-    event PostEditted(uint256 indexed postID , address indexed author , string CID); //發出PostEditted事件，記錄被改的貼文ID、作者地址、原CID
-    
-    function getReplyID(uint256 postID,uint replyId)external view returns(uint256 replyID,string memory CID, address replier, uint256 timestamp)
+    event PostDeleted(uint256 indexed postID , address indexed author);
+
+    function EditReply(string calldata CID, uint256 RID ) external
     {
-        Reply storage r = replies[postID][replyID];
-        return(replyID,r.CID,r.Replyer,r.TimeStamp);
+        require(CIDtoPostID[CID] != 0, "post not found / post have been deleted.");
+        uint256 postID = CIDtoPostID[CID];
+        require(msg.sender == replies[postID][RID].Replyer && RID < nextReplyID[postID], "only the author of this reply can edit.");
+        replies[postID][RID].editTimes++;
+        emit ReplyEdited(postID, RID, msg.sender);
+    }
+    event ReplyEdited(uint256 indexed postID, uint256 indexed RID, address indexed author);
+
+    function DeleteReply(string calldata CID, uint256 RID)external 
+    {
+
+        require(CIDtoPostID[CID] != 0 ,"post not found / post have been deleted.");
+        uint256 postID = CIDtoPostID[CID];
+        require(RID < nextReplyID[postID] && replies[postID][RID].TimeStamp != 0 && replies[postID][RID].Replyer == msg.sender,"reply does not exisit.");
+        delete replies[postID][RID];
+        emit ReplyDeleted(postID, RID, msg.sender);
+    }
+    event ReplyDeleted(uint256 indexed postID, uint256 indexed RID, address indexed author);
+    // getter & setter
+    function getNextID() external view returns(uint256 ID)
+    {
+        return nextID;
     }
 
-    //TODO
-    /*
-    */
+    function getCIDtoPostID(string calldata CID) external view returns(uint256 returnID)
+    {
+        require(CIDtoPostID[CID] != 0, "post not found / post have been deleted.");
+        return CIDtoPostID[CID];
+    }
 
-    
+    function getPostInfo(uint256 postID)external view returns(address author, string memory CID, uint256 time)
+    {
+        require(PostList[postID].TimeStamp != 0 ,"post not found / post have been deleted.");
+        return (PostList[postID].Author, PostList[postID].CID ,PostList[postID].TimeStamp);
+    }   
 
+    function getNextReplyID(uint256 postID)external view returns(uint256 ID)
+    {
+        require(PostList[postID].TimeStamp != 0 ,"post not found / post have been deleted.");
+        return nextReplyID[postID];
+    }
+
+    function getRepliesInfo(uint256 postID, uint256 replyID) external view returns(address Replyer, string memory CID,uint256 TimeStamp)
+    {
+        require(PostList[postID].TimeStamp != 0 ,"post not found / post have been deleted.");
+        return(replies[postID][replyID].Replyer, replies[postID][replyID].CID, replies[postID][replyID].TimeStamp);
+    }
+
+    function getEditID(uint256 postID)external view returns(uint256 editTimes)
+    {
+        require(PostList[postID].TimeStamp != 0 ,"post not found / post have been deleted.");
+        return nextEditID[postID];
+    }
+
+    function getEditInfo(uint256 postID, uint256 ID) external view returns(address Author, uint256 editID,uint256 TimeStamp)
+    {
+        require(PostList[postID].TimeStamp != 0 ,"post not found / post have been deleted.");
+        return (Edits[postID][ID].Author, Edits[postID][ID].editID, Edits[postID][ID].TimeStamp);
+    }
+
+    function postExists(string calldata CID) external view returns(bool exit)
+    {
+        if( CIDtoPostID[CID] != 0)
+            return true;
+        else
+            return false;
+    }
 }
