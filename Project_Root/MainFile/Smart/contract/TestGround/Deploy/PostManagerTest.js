@@ -1,15 +1,22 @@
-require("@nomicfoundation/hardhat-toolbox");
-const { ethers } = require("hardhat");
+require("@nomicfoundation/hardhat-ethers"); 
 const { expect } = require("chai");
-
-
+const { ethers } = require("hardhat");
+const ZERO = "0x0000000000000000000000000000000000000000";
+// CommonJS 下
+/*
+    let AddressZero;
+    before(async () => 
+    {
+        const ethersLib = await import("ethers");  // ESM 
+        AddressZero = ethersLib.AddressZero;
+    });
+*/
 describe("PostManager", function () 
 {
     let PostManager, pm, owner, alice, bob;
 
     beforeEach(async function () 
     {
-        console.log("▶ ethers injected?", !!ethers.constants);
         [owner, alice, bob] = await ethers.getSigners();
         PostManager = await ethers.getContractFactory("PostManager");
         pm = await PostManager.deploy();
@@ -18,6 +25,7 @@ describe("PostManager", function ()
 
     describe("Deployment & initial state", function () 
     {
+        console.log("Ethers version:", ethers.version);
         it("nextID starts at 1", async function () 
         {
             expect(await pm.getNextID()).to.equal(1);
@@ -142,10 +150,10 @@ describe("PostManager", function ()
             await expect(pm.connect(alice).DeleteReply("DEL", 0))
             .to.emit(pm, "ReplyDeleted")
             .withArgs(1, 0, alice.address);
-            const reply = await pm.getRepliesInfo(1, 0);
-            expect(reply.Replyer).to.equal(ethers.AddressZero);
-            expect(reply.CID).to.equal("");
-            expect(reply.TimeStamp).to.equal(0n);
+            const [replyer, cid, ts] = await pm.getRepliesInfo(1, 0);
+            expect(replyer).to.equal(ZERO);
+            expect(cid).to.equal("");
+            expect(ts).to.equal(0n);
         });
 
         it("reverts if non-author tries to delete", async function () 
@@ -291,13 +299,20 @@ describe("PostManager", function ()
         describe("Reply getters boundary", function () 
         {
             beforeEach(async () => { await pm.CreatePost("D1"); });
+
+            it("inspect empty reply shape", async function () {
+                const reply = await pm.getRepliesInfo(1, 0);
+                console.log(">>> reply result:", reply);
+                console.log(">>> reply keys:", Object.keys(reply));
+                // 暫時不要寫 expect，先看印出的內容
+            });
             it("initial nextReplyID is 0 and getRepliesInfo reverts for empty reply", async function () 
             {
                 expect(await pm.getNextReplyID(1)).to.equal(0);
                 const reply = await pm.getRepliesInfo(1, 0);
-                expect(reply.Replyer).to.equal(ethers.AddressZero);
-                expect(reply.CID).to.equal("");
-                expect(reply.TimeStamp).to.equal(0n);
+                expect(reply[0]).to.equal(ZERO);
+                expect(reply[1]).to.equal("");
+                expect(reply[2]).to.equal(0n);
             });
             it("getNextReplyID reverts for invalid postID", async function () 
             {
@@ -314,10 +329,10 @@ describe("PostManager", function ()
             it("initial editID is 0 and getEditInfo reverts for no edits", async function () 
             {
                 expect(await pm.getEditID(1)).to.equal(0);
-                const edit = await pm.getEditInfo(1, 0);
-                expect(edit.Author).to.equal(ethers.AddressZero);
-                expect(edit.editID).to.equal(0);
-                expect(edit.TimeStamp).to.equal(0n);
+                const [author, editID, ets] = await pm.getEditInfo(1, 0);
+                expect(author).to.equal(ZERO);
+                expect(editID).to.equal(0);
+                expect(ets).to.equal(0n);
             });
             it("getEditID reverts for invalid postID", async function () 
             {

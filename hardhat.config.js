@@ -1,5 +1,6 @@
-console.log(" ▶ hardhat.config.js loaded, tests path is:", __dirname + "/" + (module.exports.paths?.tests||""));
+
 require("@nomicfoundation/hardhat-toolbox");
+require("@nomicfoundation/hardhat-ethers");  
 
 module.exports = {
   solidity: "0.8.28",
