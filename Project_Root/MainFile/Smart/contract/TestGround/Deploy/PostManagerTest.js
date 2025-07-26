@@ -1,16 +1,8 @@
-require("@nomicfoundation/hardhat-ethers"); 
+require("@nomicfoundation/hardhat-ethers");
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
-const ZERO = "0x0000000000000000000000000000000000000000";
-// CommonJS 下
-/*
-    let AddressZero;
-    before(async () => 
-    {
-        const ethersLib = await import("ethers");  // ESM 
-        AddressZero = ethersLib.AddressZero;
-    });
-*/
+const { ZeroAddress } = require("ethers");
+
 describe("PostManager", function () 
 {
     let PostManager, pm, owner, alice, bob;
@@ -151,7 +143,7 @@ describe("PostManager", function ()
             .to.emit(pm, "ReplyDeleted")
             .withArgs(1, 0, alice.address);
             const [replyer, cid, ts] = await pm.getRepliesInfo(1, 0);
-            expect(replyer).to.equal(ZERO);
+            expect(replyer).to.equal(ZeroAddress);
             expect(cid).to.equal("");
             expect(ts).to.equal(0n);
         });
@@ -310,7 +302,7 @@ describe("PostManager", function ()
             {
                 expect(await pm.getNextReplyID(1)).to.equal(0);
                 const reply = await pm.getRepliesInfo(1, 0);
-                expect(reply[0]).to.equal(ZERO);
+                expect(reply[0]).to.equal(ZeroAddress);
                 expect(reply[1]).to.equal("");
                 expect(reply[2]).to.equal(0n);
             });
@@ -330,7 +322,7 @@ describe("PostManager", function ()
             {
                 expect(await pm.getEditID(1)).to.equal(0);
                 const [author, editID, ets] = await pm.getEditInfo(1, 0);
-                expect(author).to.equal(ZERO);
+                expect(author).to.equal(ZeroAddress);
                 expect(editID).to.equal(0);
                 expect(ets).to.equal(0n);
             });
