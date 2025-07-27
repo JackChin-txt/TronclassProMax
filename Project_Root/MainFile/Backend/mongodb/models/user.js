@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const majors = require('./majors.json');
 
 const UserSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
@@ -9,6 +10,11 @@ const UserSchema = new mongoose.Schema({
     type: String,
     enum: ['student', 'mentor'],
     default: 'student',
+    required: true
+  },
+  major: {
+    type: String,
+    enum: majors,
     required: true
   },
   createdAt: { type: Date, default: Date.now }

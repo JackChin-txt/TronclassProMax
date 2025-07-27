@@ -1,7 +1,7 @@
 const { User } = require('../models');
 
 async function register(req, res) {
-  const { username, email, walletId, role } = req.body;
+  const { username, email, walletId, role, major } = req.body;
 
   try {
     if (!username || !email || !walletId) {
@@ -17,7 +17,8 @@ async function register(req, res) {
       username,
       email,
       walletId,
-      role: role || 'student'
+      role: role || 'student',
+      major
     });
 
     res.status(201).json({ message: 'User registered', userId: newUser._id });

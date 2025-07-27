@@ -2,6 +2,7 @@ const express = require('express');
 const dotenv = require('dotenv');
 const connectDB = require('./config/db');
 const errorHandler = require('./middleware/errorHandler');
+const cors = require('cors'); 
 
 // 載入環境變數
 dotenv.config();
@@ -12,6 +13,8 @@ const PORT = process.env.PORT || 3000;
 
 // 連接 MongoDB
 connectDB();
+
+app.use(cors());
 
 // 解析 JSON 請求
 app.use(express.json());
