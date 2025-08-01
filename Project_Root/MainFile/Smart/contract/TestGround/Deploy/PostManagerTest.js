@@ -296,7 +296,6 @@ describe("PostManager", function ()
                 const reply = await pm.getRepliesInfo(1, 0);
                 console.log(">>> reply result:", reply);
                 console.log(">>> reply keys:", Object.keys(reply));
-                // 暫時不要寫 expect，先看印出的內容
             });
             it("initial nextReplyID is 0 and getRepliesInfo reverts for empty reply", async function () 
             {
