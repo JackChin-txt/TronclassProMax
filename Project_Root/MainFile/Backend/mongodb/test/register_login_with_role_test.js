@@ -7,7 +7,7 @@ const user = {
   username: 'roleTestUser',
   email: 'roletest@example.com',
   walletId: '0xROLETEST123',
-  role: 'mentor', // or 'student'
+  role: 'student', // or 'student'
   major: '商船學系'
 };
 
