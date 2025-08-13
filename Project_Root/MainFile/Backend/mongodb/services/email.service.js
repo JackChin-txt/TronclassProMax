@@ -1,11 +1,11 @@
 // services/email.service.js
 const transporter = require('../config/mail');
 
-async function sendRewardNotification(to, message) {
+async function sendRewardNotification(to, subject, message) {
   const mailOptions = {
     from: `Reward System <${process.env.GMAIL_USER}>`,
     to,
-    subject: 'You have a new reward notification!',
+    subject,
     text: message,
   };
 

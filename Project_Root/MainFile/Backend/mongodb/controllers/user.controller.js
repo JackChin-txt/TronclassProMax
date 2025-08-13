@@ -1,22 +1,53 @@
 const { User } = require('../models');
 
+// POST /api/users/register
 async function register(req, res) {
-  const { username, email, walletId } = req.body;
+  const { username, email, walletId, role, major } = req.body;
 
   try {
-    if (!username || !email || !walletId) {
+    // 基本欄位檢查
+    if (!username || !email || !walletId || !major) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
 
-    const existingUser = await User.findOne({ $or: [{ username }, { email }, { walletId }] });
+    // 檢查重複帳號
+    const existingUser = await User.findOne({
+      $or: [
+        { username },
+        { email },
+        { walletId }
+      ]
+    });
+
     if (existingUser) {
       return res.status(409).json({ message: 'User already exists' });
     }
 
-    const newUser = await User.create({ username, email, walletId });
+    // 建立使用者
+    const newUser = await User.create({
+      username,
+      email,
+      walletId,
+      role: role || 'student', // 預設為 student
+      major
+    });
+
     res.status(201).json({ message: 'User registered', userId: newUser._id });
   } catch (err) {
-    console.error('Registration error:', err.message);
+    console.error('🔴 Registration error:', err);
+
+    // 重複 key 錯誤處理
+    if (err.code === 11000) {
+      const field = Object.keys(err.keyValue || {})[0];
+      return res.status(409).json({ message: `Duplicate field: ${field}` });
+    }
+
+    // Enum 轉型錯誤（如 major 不在列舉中）
+    if (err.name === 'ValidationError') {
+      const field = Object.keys(err.errors)[0];
+      return res.status(400).json({ message: `Invalid ${field}: ${err.errors[field].message}` });
+    }
+
     res.status(500).json({ message: 'Server error' });
   }
 }
