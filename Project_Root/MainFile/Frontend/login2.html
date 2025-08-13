@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>登入系統（學生/老師）</title>
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<style>
+    body {
+        font-family: 'Arial';
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding-top: 80px;
+        background-color: #f0f2f5;
+    }
+    h1 {
+        color: #333;
+    }
+    input, select, button {
+        margin-top: 10px;
+        padding: 10px;
+        font-size: 16px;
+        width: 250px;
+    }
+    #walletAddress {
+        margin-top: 20px;
+        font-weight: bold;
+    }
+</style>
+</head>
+<body>
+<h1>登入系統（學生/老師）</h1>
+
+<select id="roleSelect" onchange="Role()">
+    <option value="student">學生</option>
+    <option value="teacher">老師</option>
+</select>
+
+<!-- 學生登入 -->
+<div id="studentLoginSection">
+    <input type="text" id="studentID" placeholder="學號">
+    <br>
+    <input type="password" id="studentPass" placeholder="密碼">
+</div>
+
+<!-- 老師登入 -->
+<div id="teacherLoginSection">
+    <input type="text" id="teacherID" placeholder="教職編號">
+    <br>
+    <input type="password" id="teacherPass" placeholder="密碼">
+</div>
+
+<button onclick="connectWallet()">🔌 連線MetaMask錢包</button>
+<div id="walletAddress">未連線</div>
+
+<button onclick="login()">登入</button>
+<p style="margin-top: 10px;">
+    還沒有帳號？<a href="register2.html">點我註冊</a>
+</p>
+
+<script>
+let currentWallet = null;
+
+function Role() {
+    const role = document.getElementById("roleSelect").value;
+    document.getElementById("studentLoginSection").style.display = role === "student" ? "block" : "none";
+    document.getElementById("teacherLoginSection").style.display = role === "teacher" ? "block" : "none";
+}
+
+async function connectWallet() {
+    if (!window.ethereum) {
+        alert("請安裝 MetaMask！");
+        return;
+    }
+    const provider = new ethers.providers.Web3Provider(window.ethereum);
+    await provider.send("eth_requestAccounts", []);
+    const signer = provider.getSigner();
+    currentWallet = await signer.getAddress();
+    document.getElementById("walletAddress").innerText = `已連線：${currentWallet}`;
+}
+
+async function login() {
+    if (!currentWallet) {
+        alert("請先連接 MetaMask！");
+        return;
+    }
+
+    try {
+        const res = await fetch("http://localhost:3000/api/auth/login", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ walletId: currentWallet })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+            const token = data.token;
+            localStorage.setItem("authToken", token);
+            localStorage.setItem("username", data.username || "匿名");
+            alert("✅ 登入成功！");
+            window.location.href = "discuss2.html";
+        } else {
+            alert("登入失敗：" + data.message);
+        }
+    } catch (err) {
+        console.error(err);
+        alert("連線失敗");
+    }
+}
+
+Role();
+</script>
+</body>
+</html>
