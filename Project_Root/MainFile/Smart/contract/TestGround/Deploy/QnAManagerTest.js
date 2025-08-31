@@ -119,6 +119,24 @@ describe("QnAManager", function ()
             const sliced = await qna.getBestReplyRange(1, 1, 1);
             expect(sliced.map(v => Number(v))).to.deep.equal([1]);
         });
+    
+        it("getBestReplyRange returns [] when offset is larger than list length", async () => 
+        {
+            // 這個 describe 的 beforeEach 已把 wallet owner -> qna；這裡不要再 transferOwnership
+
+            // 準備資料：作者 alice 發文，bob & charlie 回覆
+            await pm.connect(alice).CreatePost("CID-RANGE");
+            await pm.connect(bob).ReplyPost("CID-RANGE", 1);      // replyID = 0
+            await pm.connect(charlie).ReplyPost("CID-RANGE", 1);  // replyID = 1
+
+            // 作者 alice 經由 QnA 發獎（QnA 會 Mint，需要 QnA 已是 wallet owner）
+            await qna.connect(alice).awardReply(1, 0, 5);
+            await qna.connect(alice).awardReply(1, 1, 7);
+
+            // offset 大於長度 -> 應回傳空陣列
+            const out = await qna.getBestReplyRange(1, 99, 10);
+            expect(out.length).to.equal(0);
+        });
 
         it("removeBestReply works only for author; removing non-existing entry reverts", async () => 
         {
@@ -147,50 +165,119 @@ describe("QnAManager", function ()
   // ------------------------------------------------------------
   // Shop / redeemAttempt
   // ------------------------------------------------------------
-  describe("Shop / redeemAttempt", () => 
-  {
-    beforeEach(async () => 
+    describe("Shop / redeemAttempt", () => 
     {
-      // 先給 Alice 一些初始代幣（在轉移 owner 之前由 deployer 鑄給 Alice）
+        beforeEach(async () => 
+        {
+        // 先給 Alice 一些初始代幣（在轉移 owner 之前由 deployer 鑄給 Alice）
         await wallet.connect(owner).Mint(alice.address, 1000);
 
-      // 轉移 Wallet owner -> QnA，之後銷毀會由 QnA 觸發
-      await wallet.transferOwnership(await qna.getAddress());
+        // 轉移 Wallet owner -> QnA，之後銷毀會由 QnA 觸發
+        await wallet.transferOwnership(await qna.getAddress());
 
-      // 開商品
-      await qna.connect(owner).ItemListUpdate(1, 10, true); // price=10
+        // 開商品
+        await qna.connect(owner).ItemListUpdate(1, 10, true); // price=10
+        });
+
+        it("redeemAttempt reverts when QnA is not the Wallet owner (wallet onlyOwner blocks)", async () => 
+        {
+            // 重新部署一組乾淨的合約，確保 Wallet.owner 仍是 deployer (owner)，而非 QnA
+            const WalletX = await ethers.getContractFactory("wallet_contract_test");
+            const walletX = await WalletX.deploy();
+            await walletX.waitForDeployment();
+
+            const QNAX = await ethers.getContractFactory("QnAManager");
+            const qnaX = await QNAX.deploy(await walletX.getAddress(), await pm.getAddress());
+            await qnaX.waitForDeployment();
+
+            // Admin 在 QnA 開商品；注意這不需要 Wallet 的 owner 權限
+            await qnaX.connect(owner).ItemListUpdate(99, 10, true);
+
+            // 先給 Alice 一些錢（由 WalletX 的擁有者 owner 鑄）
+            await walletX.connect(owner).Mint(alice.address, 100);
+
+            // 這時 QnA 尚未擁有 WalletX，redeemAttempt 會在 Burn 時觸發 WalletX 的 onlyOwner 錯誤
+            await expect(qnaX.connect(alice).redeemAttempt(99, 1))
+            .to.be.revertedWithCustomError(walletX, "OwnableUnauthorizedAccount")
+            .withArgs(await qnaX.getAddress()); // 未授權的是「QnA 合約位址」
+        });
+
+
+
+        it("redeem burns from msg.sender via QnA (owner of wallet)", async () => 
+        {
+          // Alice 消費 2 單位，應銷毀 20
+            await expect(qna.connect(alice).redeemAttempt(1, 2))
+            .to.emit(wallet, "BurnEvent") // 來自 Wallet
+            .withArgs(alice.address, 20, 980); // amount=20, newBalance=980
+        });
+
+        it("redeem reverts if not available / price=0 / insufficient / amount=0", async () => 
+        {
+            // 關閉商品
+            await qna.connect(owner).ItemListUpdate(2, 10, false);
+            await expect(qna.connect(alice).redeemAttempt(2, 1))
+            .to.be.revertedWith("item is not avaliable.");
+
+            // 價格為 0
+            await qna.connect(owner).ItemListUpdate(3, 0, true);
+            await expect(qna.connect(alice).redeemAttempt(3, 1))
+            .to.be.revertedWith("item error, please contact admin.");
+
+            // 數量 0
+            await expect(qna.connect(alice).redeemAttempt(1, 0))
+            .to.be.revertedWith("request amount must be greater than 0.");
+
+            // 餘額不足（先把 Alice 餘額幾乎花光）
+            await qna.connect(owner).ItemListUpdate(4, 1000, true);
+            // Alice 目前還有 980，買 2 個需要 2000
+            await expect(qna.connect(alice).redeemAttempt(4, 2))
+            .to.be.revertedWith(" user don't have enough money "); // 注意原訊息內有空白
+        });
+
+        it("emits ItemListUpdated when admin updates shop items", async () => 
+        {
+            // 新開一個商品，觀察事件
+            await expect(qna.connect(owner).ItemListUpdate(10, 123, true))
+            .to.emit(qna, "ItemListUpdated")
+            .withArgs(10, 123, true);
+
+            // 再關閉它
+            await expect(qna.connect(owner).ItemListUpdate(10, 123, false))
+            .to.emit(qna, "ItemListUpdated")
+            .withArgs(10, 123, false);
+        });
+
+        it("emits ItemRedeemed AND burns the correct cost; balance decreases accordingly", async () => 
+        {
+            // 這個 describe 的 beforeEach 已經：
+            // - Mint 1000 給 Alice
+            // - wallet owner -> qna
+            // - 開商品 itemID=1, price=10, available=true
+
+            const before = await wallet.balanceOf(alice.address);
+            const cost = 10n * 2n; // price * amount = 10 * 2
+
+            // 不要先 await；把同一筆 tx 同時拿來驗證 2 個事件
+            const tx = qna.connect(alice).redeemAttempt(1, 2);
+
+            await expect(tx)
+                .to.emit(qna, "ItemRedeemed")
+                .withArgs(alice.address, 1, 2, Number(cost)); // 事件參數是 uint256，這裡用 Number(cost) 對齊
+
+            await expect(tx)
+                .to.emit(wallet, "BurnEvent")
+                .withArgs(alice.address, Number(cost), Number(before - cost)); // (from, amount, newBalance)
+
+            // 交易完成後再檢查餘額確實少了 cost
+            await tx;
+            const after = await wallet.balanceOf(alice.address);
+            expect(after).to.equal(before - cost);
+        });
+
+
+
     });
-
-    it("redeem burns from msg.sender via QnA (owner of wallet)", async () => 
-    {
-      // Alice 消費 2 單位，應銷毀 20
-        await expect(qna.connect(alice).redeemAttempt(1, 2))
-        .to.emit(wallet, "BurnEvent") // 來自 Wallet
-        .withArgs(alice.address, 20, 980); // amount=20, newBalance=980
-    });
-
-    it("redeem reverts if not available / price=0 / insufficient / amount=0", async () => {
-      // 關閉商品
-      await qna.connect(owner).ItemListUpdate(2, 10, false);
-      await expect(qna.connect(alice).redeemAttempt(2, 1))
-        .to.be.revertedWith("item is not avaliable.");
-
-      // 價格為 0
-      await qna.connect(owner).ItemListUpdate(3, 0, true);
-      await expect(qna.connect(alice).redeemAttempt(3, 1))
-        .to.be.revertedWith("item error, please contact admin.");
-
-      // 數量 0
-      await expect(qna.connect(alice).redeemAttempt(1, 0))
-        .to.be.revertedWith("request amount must be greater than 0.");
-
-      // 餘額不足（先把 Alice 餘額幾乎花光）
-      await qna.connect(owner).ItemListUpdate(4, 1000, true);
-      // Alice 目前還有 980，買 2 個需要 2000
-      await expect(qna.connect(alice).redeemAttempt(4, 2))
-        .to.be.revertedWith(" user don't have enough money "); // 注意原訊息內有空白
-    });
-  });
 
   // ------------------------------------------------------------
   // Decay flow（以鏈上 last+window 為準）
