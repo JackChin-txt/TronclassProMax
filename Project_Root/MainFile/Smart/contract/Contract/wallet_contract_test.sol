@@ -53,6 +53,7 @@ contract wallet_contract_test is ERC20, Ownable
         //also burn is built in
         require(balanceOf(from) >= amount, "Insufficient, not enough money.");
         _burn(from, amount);
+        _lastSpend[from] = block.timestamp; 
         emit BurnEvent(from, amount, balanceOf(from));
         emit LastSpendUpdate(from, block.timestamp);
     }
@@ -95,12 +96,12 @@ contract wallet_contract_test is ERC20, Ownable
         return _lastSpend[who];
     }
 
-    //TODO for future
     function decay(address user) external onlyOwner
     {
         require( balanceOf(user) > 0, "user's balance is 0.");
         uint256 bal = balanceOf(user)/10;
         _burn(user, bal);
+        _lastSpend[user] = block.timestamp; 
         emit DecayEvent(user, bal);
     }
     event DecayEvent(address indexed user, uint256 amount);
