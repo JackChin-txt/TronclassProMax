@@ -1,170 +1,319 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-<meta charset="UTF-8">
-<title>討論區 - 學生與老師</title>
+<meta charset="UTF-8"/>
+<title>討論區 - 公開版</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <style>
-body {
-    font-family: 'Arial';
-    background-color: #f0f2f5;
-    padding: 20px;
-}
-h1 {
-    color: #333;
-}
-#postForm, .question {
-    background: white;
-    padding: 15px;
-    margin-bottom: 20px;
-    border-radius: 8px;
-    box-shadow: 0 0 5px rgba(0,0,0,0.1);
-}
-textarea, input[type="text"] {
-    width: 100%;
-    margin-top: 10px;
-    padding: 10px;
-    font-size: 16px;
-}
-button {
-    margin-top: 10px;
-    padding: 8px 16px;
-    font-size: 14px;
-    background-color: #4caf50;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-}
-button:hover {
-    background-color: #45a049;
-}
-.reply {
-    background: #fafafa;
-    margin-top: 10px;
-    padding: 10px;
-    border-left: 3px solid #ccc;
-}
-#backBtn {
-    position: absolute;
-    right: 20px;
-    top: 20px;
-    background-color: #cc4444;
-    color: white;
-    border: none;
-    padding: 10px 15px;
-    border-radius: 5px;
-    cursor: pointer;
-}
-#userInfo {
-    margin-bottom: 20px;
-    color: #444;
-    font-weight: bold;
-}
+  :root{
+    --bg:#0b0f19;
+    --card:#121826;
+    --card-2:#0f172a;
+    --muted:#9aa4b2;
+    --text:#e5e7eb;
+    --border:#1f2937;
+    --shadow:0 10px 30px rgba(0,0,0,.35);
+    --radius:14px;
+    --primary:#4caf50;
+    --primary-hover:#45a049;
+    --danger:#ef4444;
+    --danger-hover:#dc2626;
+    --accent:#3b82f6;
+  }
+  *{box-sizing:border-box}
+  body{
+    font-family:Arial,"Microsoft JhengHei",sans-serif;
+    margin:0;
+    min-height:100vh;
+    color:var(--text);
+    background:
+      radial-gradient(1200px 600px at 20% -10%, #12233f 0%, transparent 60%),
+      radial-gradient(900px 600px at 100% 0%, #1a2638 0%, transparent 60%),
+      var(--bg);
+  }
+
+  /* Navbar */
+  .nav{
+    position:sticky; top:0; z-index:10;
+    display:flex; align-items:center; gap:12px;
+    padding:16px 20px;
+    background:rgba(9,12,20,.65);
+    backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--border);
+  }
+  .nav h1{font-size:20px; margin:0}
+  .nav .spacer{flex:1}
+  .btn{
+    padding:10px 14px; border:none; border-radius:10px;
+    background:var(--card-2); color:var(--text); cursor:pointer;
+    border:1px solid #273041; transition:background .15s ease, transform .05s ease;
+  }
+  .btn:active{transform:translateY(1px)}
+  .btn.primary{background:var(--primary); border-color:transparent}
+  .btn.primary:hover{background:var(--primary-hover)}
+  .btn.danger{background:var(--danger); border-color:transparent}
+  .btn.danger:hover{background:var(--danger-hover)}
+  .btn.linklike{background:transparent; border-color:transparent; color:#93c5fd}
+  .btn.linklike:hover{text-decoration:underline}
+
+  .wrap{max-width:980px; margin:24px auto; padding:0 16px}
+
+  /* Cards */
+  .card{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+  }
+
+  /* Post form */
+  #postForm{
+    padding:20px;
+  }
+  #postForm h3{margin:0 0 6px}
+  .hint{font-size:12px; color:var(--muted); margin:4px 0 14px}
+  .row{display:flex; gap:12px; flex-wrap:wrap}
+  label{font-size:14px; color:#cbd5e1}
+  input[type="text"], textarea{
+    width:100%; padding:12px; margin-top:8px; margin-bottom:12px;
+    border:1px solid #273041; border-radius:10px; outline:none;
+    background:#0f172a; color:var(--text);
+  }
+  input::placeholder, textarea::placeholder{color:#64748b}
+  input:focus, textarea:focus{border-color:var(--accent); box-shadow:0 0 0 3px rgba(59,130,246,.15)}
+
+  /* Post list */
+  .post{padding:18px}
+  .post + .post{border-top:1px solid var(--border)}
+  .post-title{font-size:18px; margin:0 0 6px}
+  .meta{font-size:13px; color:#cbd5e1; display:flex; gap:8px; align-items:center}
+  .badge{
+    display:inline-block; padding:2px 8px; font-size:12px;
+    border-radius:999px; background:#0c1324; border:1px solid #273041; color:#cbd5e1;
+  }
+  .post-body{margin:10px 0 14px; line-height:1.6; color:#e2e8f0}
+  .actions{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+
+  /* Reply */
+  .reply-box{
+    margin-top:10px; padding:12px;
+    background:#0d1426; border:1px solid #273041; border-radius:12px;
+  }
+  .reply-item{
+    background:#0c1324; border:1px solid #273041;
+    padding:10px 12px; border-radius:10px; margin-top:10px;
+  }
+  .reply-meta{font-size:12px; color:#93a0b3; margin-top:4px}
+  .empty{
+    text-align:center; padding:28px; color:var(--muted)
+  }
+
+  /* Footer tip */
+  .footer-tip{
+    margin-top:16px; padding:14px; font-size:13px; color:#cbd5e1;
+    border-top:1px dashed #243044;
+  }
+
+  /* Responsive tweaks */
+  @media (max-width:520px){
+    .nav h1{font-size:18px}
+  }
 </style>
 </head>
 <body>
 
-<button id="backBtn" onclick="goBack()">🔙 登出並返回登入頁</button>
-<h1>討論區</h1>
-<div id="userInfo"></div>
+  <!-- Navbar -->
+  <div class="nav">
+    <h1>討論區</h1>
+    <span class="badge" id="userBadge">訪客</span>
+    <div class="spacer"></div>
+    <button class="btn linklike" onclick="goStore()">前往商店</button>
+    <button class="btn linklike" onclick="goLogin()">返回登入</button>
+    <button class="btn danger" onclick="logout()">登出</button>
+  </div>
 
-<div id="postForm">
-<h3>發表問題</h3>
-<input type="text" id="title" placeholder="標題">
-<textarea id="content" rows="4" placeholder="請輸入問題內容..."></textarea>
-<button onclick="submitPost()">送出</button>
-</div>
+  <div class="wrap">
+    <!-- 發文卡片 -->
+    <div id="postForm" class="card">
+      <h3>發表問題</h3>
+      <div class="hint">已登入者會自動帶出使用者名稱與角色；未登入則以「匿名／訪客」發文。</div>
 
-<div id="posts"></div>
+      <label for="title">標題</label>
+      <input id="title" type="text" placeholder="請輸入問題標題…"/>
+
+      <label for="content">內容</label>
+      <textarea id="content" rows="4" placeholder="請詳細描述你的問題或想法…"></textarea>
+
+      <div class="row">
+        <button class="btn primary" onclick="submitPost()">送出問題</button>
+        <button class="btn" onclick="resetForm()">清空</button>
+      </div>
+    </div>
+
+    <!-- 列表卡片 -->
+    <div class="card" style="margin-top:16px;">
+      <div id="posts"></div>
+      <div id="emptyState" class="empty" style="display:none;">目前尚無貼文，搶先發一篇吧！</div>
+
+      <div class="footer-tip">
+        小提醒：本頁資料儲存在你的瀏覽器 <code>localStorage</code>，僅供前端展示與測試；正式版可串接後端 API。
+      </div>
+    </div>
+  </div>
 
 <script>
-const userAddress = localStorage.getItem("userAddress");
-const userRole = localStorage.getItem("userRole");
-const allUsers = JSON.parse(localStorage.getItem("userData") || "{}");
-const userData = allUsers[userAddress];
+  // === 使用者狀態 ===
+  let user = { name: "匿名", role: "訪客" };
+  try {
+    const stored = localStorage.getItem("user");
+    if (stored) {
+      const u = JSON.parse(stored);
+      // 依你後端回傳欄位命名調整（此處假設 user.username / user.role）
+      user.name = u?.username || u?.name || "使用者";
+      user.role = u?.role || "學生";
+    }
+  } catch (_) {}
+  document.getElementById("userBadge").textContent = `${user.name}（${user.role}）`;
 
-if (!userAddress || !userRole || !userData) {
-    alert("請先登入！");
-    window.location.href = "login2.html";
-}
+  function goLogin(){ window.location.href = "login2.html"; }
+  function logout(){
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    location.reload();
+  }
 
-const displayName = userData.studentID || userData.teacherID || "未知使用者";
+  // === 發文 ===
+  function resetForm(){
+    document.getElementById('title').value = '';
+    document.getElementById('content').value = '';
+  }
 
-document.getElementById("userInfo").innerText = `目前登入：${displayName}（${userRole}）`;
-
-let user = {
-    address: userAddress,
-    role: userRole,
-    name: displayName
-};
-
-function goBack() {
-    localStorage.removeItem('userAddress');
-    localStorage.removeItem('userRole');
-    window.location.href = 'login2.html';
-}
-
-function submitPost() {
+  function submitPost(){
     const title = document.getElementById('title').value.trim();
     const content = document.getElementById('content').value.trim();
-    if (!title || !content) return alert('請填寫標題與內容');
+    if(!title || !content){ alert('請填寫標題與內容'); return; }
 
     const posts = JSON.parse(localStorage.getItem('posts') || '[]');
     posts.push({
-        id: Date.now(),
-        title,
-        content,
-        author: user.name,  // 顯示 studentID / teacherID
-        role: user.role,
-        replies: []
+      id: Date.now(),
+      title, content,
+      author: user.name,
+      role: user.role,
+      createdAt: new Date().toISOString(),
+      replies: []
     });
     localStorage.setItem('posts', JSON.stringify(posts));
-    document.getElementById('title').value = '';
-    document.getElementById('content').value = '';
+    resetForm();
     renderPosts();
-}
+  }
 
-function deletePost(postId) {
+  function deletePost(postId){
     const posts = JSON.parse(localStorage.getItem('posts') || '[]');
-    const newPosts = posts.filter(p => p.id !== postId || p.author !== user.name);
-    localStorage.setItem('posts', JSON.stringify(newPosts));
+    const next = posts.filter(p => p.id !== postId);
+    localStorage.setItem('posts', JSON.stringify(next));
     renderPosts();
-}
+  }
 
-function submitReply(postId, inputId) {
-    const replyText = document.getElementById(inputId).value.trim();
-    if (!replyText) return;
+  function submitReply(postId, inputId){
+    const text = document.getElementById(inputId).value.trim();
+    if(!text) return;
+
     const posts = JSON.parse(localStorage.getItem('posts') || '[]');
     const post = posts.find(p => p.id === postId);
-    post.replies.push({ text: replyText, author: user.name, role: user.role });
+    if(!post) return;
+
+    post.replies.push({
+      text,
+      author: user.name,
+      role: user.role,
+      createdAt: new Date().toISOString()
+    });
     localStorage.setItem('posts', JSON.stringify(posts));
     renderPosts();
+  }
+
+  function timeAgo(iso){
+    if(!iso) return "";
+    const diff = (Date.now() - new Date(iso).getTime())/1000;
+    if(diff < 60) return `${Math.floor(diff)} 秒前`;
+    if(diff < 3600) return `${Math.floor(diff/60)} 分鐘前`;
+    if(diff < 86400) return `${Math.floor(diff/3600)} 小時前`;
+    return `${Math.floor(diff/86400)} 天前`;
+  }
+
+  function goStore(){
+  window.location.href = "store.html"; // 這裡改成你實際的商店頁面檔名
 }
 
-function renderPosts() {
-    const posts = JSON.parse(localStorage.getItem('posts') || '[]');
+  function renderPosts(){
     const container = document.getElementById('posts');
+    const empty = document.getElementById('emptyState');
+    const posts = JSON.parse(localStorage.getItem('posts') || '[]');
+
     container.innerHTML = '';
-    posts.reverse().forEach(post => {
-        const div = document.createElement('div');
-        div.className = 'question';
-        div.innerHTML = `
-            <h3>${post.title}</h3>
-            <p>${post.content}</p>
-            <p><strong>作者：</strong>${post.author}（${post.role}）</p>
-            ${post.author === user.name ? `<button onclick="deletePost(${post.id})">🗑 刪除</button>` : ''}
-            <div>
-                <input type="text" id="reply-${post.id}" placeholder="回覆這篇問題...">
-                <button onclick="submitReply(${post.id}, 'reply-${post.id}')">回覆</button>
-            </div>
-            ${post.replies.map(r => `<div class='reply'><p>${r.text}</p><small>回覆者：${r.author}（${r.role}）</small></div>`).join('')}
-        `;
-        container.appendChild(div);
+    if(posts.length === 0){
+      empty.style.display = '';
+      return;
+    }
+    empty.style.display = 'none';
+
+    // 以時間倒序
+    [...posts].sort((a,b)=>b.id - a.id).forEach(post=>{
+      const div = document.createElement('div');
+      div.className = 'post';
+
+      div.innerHTML = `
+        <h3 class="post-title">${escapeHtml(post.title)}</h3>
+        <div class="meta">
+          <span class="badge">${escapeHtml(post.author)}（${escapeHtml(post.role)}）</span>
+          <span>．</span>
+          <span>${timeAgo(post.createdAt)}</span>
+        </div>
+        <div class="post-body">${escapeHtml(post.content).replace(/\n/g,'<br/>')}</div>
+
+        <div class="actions">
+          <button class="btn" onclick="toggleReply(${post.id})">回覆</button>
+          <button class="btn danger" onclick="deletePost(${post.id})">刪除</button>
+        </div>
+
+        <div class="reply-box" id="box-${post.id}" style="display:none;">
+          <input type="text" id="reply-${post.id}" placeholder="回覆這篇問題…" />
+          <div class="row">
+            <button class="btn primary" onclick="submitReply(${post.id}, 'reply-${post.id}')">送出回覆</button>
+            <button class="btn" onclick="toggleReply(${post.id})">收起</button>
+          </div>
+        </div>
+
+        ${post.replies.map(r => `
+          <div class="reply-item">
+            <div>${escapeHtml(r.text)}</div>
+            <div class="reply-meta">${escapeHtml(r.author)}（${escapeHtml(r.role)}）・${timeAgo(r.createdAt)}</div>
+          </div>
+        `).join('')}
+      `;
+      container.appendChild(div);
     });
-}
+  }
 
-renderPosts();
+  function toggleReply(id){
+    const el = document.getElementById(`box-${id}`);
+    if(!el) return;
+    el.style.display = (el.style.display === 'none' || !el.style.display) ? 'block' : 'none';
+    const input = document.getElementById(`reply-${id}`);
+    if(input){ input.focus(); }
+  }
 
+  function escapeHtml(str){
+    return String(str)
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;')
+      .replace(/'/g,'&#039;');
+  }
+
+  // 初始渲染
+  renderPosts();
 </script>
 </body>
 </html>
