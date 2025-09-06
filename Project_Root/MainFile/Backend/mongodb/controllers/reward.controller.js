@@ -1,7 +1,7 @@
 const { RewardItem, RedemptionRecord, User } = require('../models');
 const { sendRewardNotification } = require('../services/email.service');
 
-// ✅ createReward 定義
+// createReward 定義
 async function createReward(req, res) {
   const {
     name,
@@ -46,7 +46,7 @@ async function createReward(req, res) {
   }
 }
 
-// ✅ redeemReward 定義
+// redeemReward 定義
 async function redeemReward(req, res) {
   const rewardId = req.params.id;
   const userId = req.user.userId;
@@ -104,8 +104,68 @@ async function redeemReward(req, res) {
   }
 }
 
+// 獲取所有獎品 (商城首頁)
+async function getRewards(req, res) {
+  try {
+    const { sortBy, order = 'asc', keyword } = req.query;
+
+    // 排序設定
+    let sortOption = {};
+    if (sortBy) {
+      sortOption[sortBy] = order === 'desc' ? -1 : 1;
+    }
+
+    // 搜尋條件
+    let filter = {};
+    if (keyword) {
+      filter = {
+        $or: [
+          { name: { $regex: keyword, $options: 'i' } },       // 名稱模糊搜尋
+          { description: { $regex: keyword, $options: 'i' } } // 描述模糊搜尋
+        ]
+      };
+    }
+
+    // 查詢
+    const rewards = await RewardItem.find(filter).sort(sortOption);
+
+    res.status(200).json(rewards);
+  } catch (err) {
+    res.status(500).json({ message: 'Error fetching rewards' });
+  }
+}
+
+// 獲取單一獎品細節
+async function getRewardById(req, res) {
+  try {
+    const reward = await RewardItem.findById(req.params.id);
+    if (!reward) return res.status(404).json({ message: 'Reward not found' });
+    res.status(200).json(reward);
+  } catch (err) {
+    console.error('Get reward error:', err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+}
+
+// 查看自己的兌換紀錄
+async function getMyRedemptions(req, res) {
+  try {
+    const redemptions = await RedemptionRecord.find({ userId: req.user.userId })
+      .populate('rewardItemId', 'name type image')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json(redemptions);
+  } catch (err) {
+    console.error('Get my redemptions error:', err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+}
+
 // ✅ 匯出兩個函式
 module.exports = {
   createReward,
-  redeemReward
+  redeemReward,
+  getRewards,
+  getRewardById,
+  getMyRedemptions
 };
