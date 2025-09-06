@@ -107,9 +107,9 @@ contract PostManager
         require(msg.sender == PostList[ID].Author,"Only author can delete this post");
         uint256 editID = nextEditID[ID]++;
         Edits[ID][editID] = Edit(msg.sender, editID, block.timestamp);
-        emit PostEdited(ID, msg.sender);
+        emit PostEdited(ID, msg.sender,block.timestamp);
     }
-    event PostEdited(uint256 indexed postID, address indexed author);
+    event PostEdited(uint256 indexed postID, address indexed author, uint256 time);
 
     function DeletePost(string calldata CID) external
     {
@@ -127,9 +127,9 @@ contract PostManager
         }
         delete nextEditID[ID];
         delete CIDtoPostID[CID];
-        emit PostDeleted(ID, msg.sender);
+        emit PostDeleted(ID, msg.sender,block.timestamp);
     }
-    event PostDeleted(uint256 indexed postID , address indexed author);
+    event PostDeleted(uint256 indexed postID , address indexed author,uint256 time);
 
     function EditReply(string calldata CID, uint256 RID ) external
     {
@@ -155,43 +155,43 @@ contract PostManager
     function getNextID() external view returns(uint256 ID)
     {
         return nextID;
-    }
+    }//回傳下篇貼文的ID
 
     function getCIDtoPostID(string calldata CID) external view returns(uint256 returnID)
     {
         require(CIDtoPostID[CID] != 0, "post not found / post have been deleted.");
         return CIDtoPostID[CID];
-    }
+    }//轉換CID成PostID 輸入鍊下ID取的鍊上ID
 
     function getPostInfo(uint256 postID)external view returns(address author, string memory CID, uint256 time)
     {
         require(PostList[postID].TimeStamp != 0 ,"post not found / post have been deleted.");
         return (PostList[postID].Author, PostList[postID].CID ,PostList[postID].TimeStamp);
-    }   
+    }//取得post的內容 會回傳一個address  一個string  一個uint265分別是post author、CID、時間戳
 
     function getNextReplyID(uint256 postID)external view returns(uint256 ID)
     {
         require(PostList[postID].TimeStamp != 0 ,"post not found / post have been deleted.");
         return nextReplyID[postID];
-    }
+    }//還傳某貼文下個reply的ID是多少
 
     function getRepliesInfo(uint256 postID, uint256 replyID) external view returns(address Replyer, string memory CID,uint256 TimeStamp)
     {
         require(PostList[postID].TimeStamp != 0 ,"post not found / post have been deleted.");
         return(replies[postID][replyID].Replyer, replies[postID][replyID].CID, replies[postID][replyID].TimeStamp);
-    }
+    }//取得reply的內容 會還傳一個address string uint256, 分別是reply author , CID , 時間戳
 
-    function getEditID(uint256 postID)external view returns(uint256 editTimes)
+    function getEditID(uint256 postID)external view returns(uint256 editID)
     {
         require(PostList[postID].TimeStamp != 0 ,"post not found / post have been deleted.");
         return nextEditID[postID];
-    }
+    }//得到某貼文下個edit的ID
 
     function getEditInfo(uint256 postID, uint256 ID) external view returns(address Author, uint256 editID,uint256 TimeStamp)
     {
         require(PostList[postID].TimeStamp != 0 ,"post not found / post have been deleted.");
         return (Edits[postID][ID].Author, Edits[postID][ID].editID, Edits[postID][ID].TimeStamp);
-    }
+    }//得到某個post的edit資訊
 
     function postExists(string calldata CID) external view returns(bool exit)
     {
@@ -199,5 +199,5 @@ contract PostManager
             return true;
         else
             return false;
-    }
+    }//輸入鍊下ID 回傳貼文是否存在
 }
