@@ -90,8 +90,7 @@ async function deleteComment() {
 
 (async () => {
   try {
-    console.log('🚀 Running full Comment API CRUD test...
-');
+    console.log('🚀 Running full Comment API CRUD test...');
     await registerUser();
     await loginUser();
     await createPost();
