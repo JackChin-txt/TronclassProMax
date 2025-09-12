@@ -23,6 +23,7 @@ async function login(req, res) {
     res.json({
       message: 'Login successful',
       token,
+      userId: user._id.toString(),
       username: user.username,
       role: user.role
     });

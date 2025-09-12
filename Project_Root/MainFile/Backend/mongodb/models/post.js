@@ -7,7 +7,8 @@ const PostSchema = new mongoose.Schema({
   tags: [String],
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date },
-  cutoffTime: { type: Date }
+  cutoffTime: { type: Date },
+  bestReply: { type: Boolean, default: false }
 });
 
 module.exports = mongoose.model('Post', PostSchema);
