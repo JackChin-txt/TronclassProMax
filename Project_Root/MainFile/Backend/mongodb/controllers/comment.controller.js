@@ -5,16 +5,20 @@ exports.addComment = async (req, res) => {
     const { postId, content, cutoffTime } = req.body;
     const userId = req.user.userId;
 
+    const count = await Comment.countDocuments({ postId });
+
     const comment = new Comment({
       postId,
       author: userId,
       content,
-      cutoffTime
+      cutoffTime,
+      replyId: count + 1
     });
 
     await comment.save();
     res.status(201).json({ message: 'Comment added', comment });
   } catch (err) {
+    console.error('Add comment error:', err.message);
     res.status(500).json({ message: 'Failed to add comment', error: err.message });
   }
 };

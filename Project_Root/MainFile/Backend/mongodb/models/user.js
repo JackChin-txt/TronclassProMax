@@ -17,6 +17,10 @@ const UserSchema = new mongoose.Schema({
     enum: majors,
     required: true
   },
+  admin: {
+    type: Boolean,
+    default: false
+  },
   createdAt: { type: Date, default: Date.now }
 });
 

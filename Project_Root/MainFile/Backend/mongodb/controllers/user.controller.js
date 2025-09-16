@@ -52,4 +52,54 @@ async function register(req, res) {
   }
 }
 
-module.exports = { register };
+
+async function getMyProfile(req, res) {
+  try {
+    const user = await User.findById(req.user.userId).select('-__v'); 
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.json(user);
+  } catch (err) {
+    console.error('Get my profile error:', err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+}
+
+async function getMyName(req, res) {
+  try {
+    const user = await User.findById(req.user.userId); 
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.json({ username: user.username });
+  } catch (err) {
+    console.error('Get my name error:', err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+}
+
+
+
+async function getMyPoints(req, res) {
+  try {
+    const user = await User.findById(req.user.userId).select('points');
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.json({ points: user.points });
+  } catch (err) {
+    console.error('Get my points error:', err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+}
+
+
+module.exports = { 
+  register,
+  getMyProfile,
+  getMyName,
+  getMyPoints 
+};
