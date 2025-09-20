@@ -29,7 +29,8 @@ async function registerUser() {
 
 async function loginUser() {
   const res = await axios.post(`${BASE_URL}/api/auth/login`, {
-    walletId: user.walletId
+    walletId: user.walletId,
+    points : 20
   });
   token = res.data.token;
   console.log('Logged in as:', res.data.username);

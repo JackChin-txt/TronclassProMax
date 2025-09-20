@@ -5,7 +5,8 @@ const {
   updateComment,
   deleteComment,
   getCommentsByPost,
-  likeComment
+  likeComment,
+  setBestComment
 } = require('../controllers/comment.controller');
 const authenticateToken = require('../middleware/authenticateToken');
 
@@ -23,5 +24,8 @@ router.get('/post/:postId', getCommentsByPost);
 
 // 喜歡或取消喜歡留言
 router.put('/:id/like', authenticateToken, likeComment);
+
+// 設定最佳留言（只有文章作者能設定）
+router.put('/:commentId/best', authenticateToken, setBestComment);
 
 module.exports = router;

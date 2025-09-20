@@ -11,13 +11,7 @@ async function register(req, res) {
     }
 
     // 檢查重複帳號
-    const existingUser = await User.findOne({
-      $or: [
-        { username },
-        { email },
-        { walletId }
-      ]
-    });
+    const existingUser = await User.findOne({ walletId });
 
     if (existingUser) {
       return res.status(409).json({ message: 'User already exists' });
@@ -34,7 +28,7 @@ async function register(req, res) {
 
     res.status(201).json({ message: 'User registered', userId: newUser._id });
   } catch (err) {
-    console.error('🔴 Registration error:', err);
+    console.error(' Registration error:', err);
 
     // 重複 key 錯誤處理
     if (err.code === 11000) {

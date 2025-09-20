@@ -1,5 +1,5 @@
-    const { Post } = require('../models');
-
+const { Post } = require('../models');
+// 創建貼文，接收標題，內文，標籤，回傳完整post
 async function createPost(req, res) {
   const { title, content, tags } = req.body;
 

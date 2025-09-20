@@ -54,28 +54,49 @@ async function redeemReward(req, res) {
   try {
     const reward = await RewardItem.findById(rewardId);
     const user = await User.findById(userId);
-
+    // 檢查 reward 是否存在
     if (!reward) {
-      return res.status(404).json({ message: 'Reward not found' });
+      return res.status(404).json({
+        success: false,
+        message: 'Reward not found',
+        pointsDeducted: 0,
+        remainingPoints: user?.points || 0
+      });
     }
-
+    // 計算該使用者對此 reward 已經兌換過幾次
     const redemptionCount = await RedemptionRecord.countDocuments({
       userId,
       rewardItemId: rewardId
     });
-
+    // 檢查兌換次數是否超過限制
     if (reward.userLimit > 0 && redemptionCount >= reward.userLimit) {
-      return res.status(403).json({ message: 'Redemption limit reached' });
+      return res.status(403).json({
+        success: false,
+        message: 'Redemption limit reached',
+        pointsDeducted: 0,
+        remainingPoints: user.points
+      });
     }
-
+    // 檢查使用者點數是否足夠
     if (user.points < reward.pointsRequired) {
-      return res.status(400).json({ message: 'Insufficient points' });
+      return res.status(400).json({
+        success: false,
+        message: 'Insufficient points',
+        pointsDeducted: 0,
+        remainingPoints: user.points
+      });
     }
-
+    // 檢查非 grade 獎勵是否有庫存
     if (reward.type !== 'grade' && reward.quantity <= 0) {
-      return res.status(400).json({ message: 'Reward out of stock' });
+      return res.status(400).json({
+        success: false,
+        message: 'Reward out of stock',
+        pointsDeducted: 0,
+        remainingPoints: user.points
+      });
     }
 
+    // 建立兌換紀錄
     await RedemptionRecord.create({
       userId,
       rewardItemId: reward._id,
@@ -83,24 +104,39 @@ async function redeemReward(req, res) {
       pointsSpent: reward.pointsRequired
     });
 
+    // 扣點數
     user.points -= reward.pointsRequired;
     await user.save();
 
+    // 扣庫存（非 grade）
     if (reward.type !== 'grade') {
       reward.quantity -= 1;
       await reward.save();
     }
 
+    // 發送通知信
     await sendRewardNotification(
       user.email,
       'Reward Redemption Confirmation',
-      `Hi ${user.username}, you have successfully redeemed the reward: "${reward.name}". Please wait for further instructions.`
+      `Hi ${user.username}, you have successfully redeemed the reward: "${reward.name}".`
     );
 
-    res.status(200).json({ message: 'Reward redeemed and email sent' });
+    // 回傳成功與點數資訊
+    res.status(200).json({
+      success: true,
+      message: 'Reward redeemed successfully',
+      pointsDeducted: reward.pointsRequired
+    });
+
   } catch (err) {
     console.error('Redeem reward error:', err.message);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      pointsDeducted: 0,
+      remainingPoints: 0,
+      error: err.message
+    });
   }
 }
 

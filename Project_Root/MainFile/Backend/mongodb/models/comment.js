@@ -8,7 +8,8 @@ const CommentSchema = new mongoose.Schema({
   cutoffTime: { type: Date },
   createdAt: { type: Date, default: Date.now },
   numOfLikes: { type: Number, default: 0},
-  replyId:  { type: Number, required: true }
+  replyId:  { type: Number, required: true },
+  bestReply: { type: Boolean, default: false }
 });
 
 module.exports = mongoose.model('Comment', CommentSchema);
