@@ -126,7 +126,7 @@ async function submitReply(postId) {
     const text = document.getElementById(inputId).value.trim();
     if (!text) return;
 
-    try {
+    try {//call backend API to store reply
         const res = await fetch(`http://localhost:3000/api/reply`, {
             method: "POST",
             headers: {

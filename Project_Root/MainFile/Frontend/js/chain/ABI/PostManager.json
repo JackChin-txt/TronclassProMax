@@ -1,0 +1,432 @@
+[
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "postID",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "author",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "string",
+        "name": "CID",
+        "type": "string"
+      }
+    ],
+    "name": "PostCreated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "postID",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "author",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "time",
+        "type": "uint256"
+      }
+    ],
+    "name": "PostDeleted",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "postID",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "author",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "time",
+        "type": "uint256"
+      }
+    ],
+    "name": "PostEdited",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "postID",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "replyID",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "replier",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "CID",
+        "type": "string"
+      }
+    ],
+    "name": "PostReply",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "postID",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "RID",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "author",
+        "type": "address"
+      }
+    ],
+    "name": "ReplyDeleted",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "postID",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "RID",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "author",
+        "type": "address"
+      }
+    ],
+    "name": "ReplyEdited",
+    "type": "event"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "CID",
+        "type": "string"
+      }
+    ],
+    "name": "CreatePost",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "CID",
+        "type": "string"
+      }
+    ],
+    "name": "DeletePost",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "CID",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "RID",
+        "type": "uint256"
+      }
+    ],
+    "name": "DeleteReply",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "CID",
+        "type": "string"
+      }
+    ],
+    "name": "EditPost",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "CID",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "RID",
+        "type": "uint256"
+      }
+    ],
+    "name": "EditReply",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "CID",
+        "type": "string"
+      }
+    ],
+    "name": "ReplyPost",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "CID",
+        "type": "string"
+      }
+    ],
+    "name": "getCIDtoPostID",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "returnID",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "postID",
+        "type": "uint256"
+      }
+    ],
+    "name": "getEditID",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "editID",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "postID",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "ID",
+        "type": "uint256"
+      }
+    ],
+    "name": "getEditInfo",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "Author",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "editID",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "TimeStamp",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getNextID",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "ID",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "postID",
+        "type": "uint256"
+      }
+    ],
+    "name": "getNextReplyID",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "ID",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "postID",
+        "type": "uint256"
+      }
+    ],
+    "name": "getPostInfo",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "author",
+        "type": "address"
+      },
+      {
+        "internalType": "string",
+        "name": "CID",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "time",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "postID",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "replyID",
+        "type": "uint256"
+      }
+    ],
+    "name": "getRepliesInfo",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "Replyer",
+        "type": "address"
+      },
+      {
+        "internalType": "string",
+        "name": "CID",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "TimeStamp",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "CID",
+        "type": "string"
+      }
+    ],
+    "name": "postExists",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "exit",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+]

@@ -4,8 +4,8 @@ const path = require("path");
 const hre = require("hardhat");
 
 // 你要輸出的前端設定位置（會自動建立資料夾）
-const OUT_DIR = path.join(__dirname, "..", "frontend", "config");
-const ABI_DIR = path.join(OUT_DIR, "abi");
+const OUT_DIR = path.join(__dirname, "..", "..", ".." ,"Frontend", "js", "chain");
+const ABI_DIR = path.join(OUT_DIR, "ABI");
 const ADDR_FP = path.join(OUT_DIR, "addresses.json");
 
 // 依需要調整
