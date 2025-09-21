@@ -79,7 +79,6 @@
     <!-- 角色選擇：保留但不傳到後端 -->
     <label for="roleSelect">角色（可選）</label>
     <select id="roleSelect">
-      <option value="">不指定</option>
       <option value="student">學生</option>
       <option value="mentor">老師</option>
     </select>
@@ -152,7 +151,7 @@
 
       try {
         setStatus("登入中…");
-        const res = await fetch("http://localhost:3000/api/users/login", {
+        const res = await fetch("http://localhost:3000/api/auth/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)
@@ -168,7 +167,20 @@
 
         // 假設後端回：{ token, user }
         if (data.token) localStorage.setItem("token", data.token);
-        if (data.user)  localStorage.setItem("user", JSON.stringify(data.user));
+
+        // --- NEW: 將目前選到的角色寫入 localStorage.user.role，供討論區顯示 ---
+        const selectedRole = (roleSelect.value === "mentor") ? "mentor" : "student";  // 只允許兩種
+        const serverUser = data.user || {};
+        const username = serverUser.username || serverUser.name || ("使用者_" + walletId.slice(2, 8));
+
+        const mergedUser = {
+          ...serverUser,
+          username,
+          walletId,
+          role: selectedRole  // 關鍵：這裡決定討論區的「學生/老師」標示
+        };
+        localStorage.setItem("user", JSON.stringify(mergedUser));
+        // --- NEW: 結束 ---
 
         setStatus("✅ 登入成功，前往討論區…");
         window.location.href = "discuss2.html";

@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8"/>
-<title>討論區 - 公開版</title>
+<title>討論區 - 公開版（含老師權限）</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <style>
   :root{
@@ -19,6 +19,7 @@
     --danger:#ef4444;
     --danger-hover:#dc2626;
     --accent:#3b82f6;
+    --teacher:#0e1b35;
   }
   *{box-sizing:border-box}
   body{
@@ -32,7 +33,6 @@
       var(--bg);
   }
 
-  /* Navbar */
   .nav{
     position:sticky; top:0; z-index:10;
     display:flex; align-items:center; gap:12px;
@@ -57,19 +57,8 @@
   .btn.linklike:hover{text-decoration:underline}
 
   .wrap{max-width:980px; margin:24px auto; padding:0 16px}
-
-  /* Cards */
-  .card{
-    background:var(--card);
-    border:1px solid var(--border);
-    border-radius:var(--radius);
-    box-shadow:var(--shadow);
-  }
-
-  /* Post form */
-  #postForm{
-    padding:20px;
-  }
+  .card{background:var(--card); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow)}
+  #postForm{padding:20px}
   #postForm h3{margin:0 0 6px}
   .hint{font-size:12px; color:var(--muted); margin:4px 0 14px}
   .row{display:flex; gap:12px; flex-wrap:wrap}
@@ -81,62 +70,41 @@
   }
   input::placeholder, textarea::placeholder{color:#64748b}
   input:focus, textarea:focus{border-color:var(--accent); box-shadow:0 0 0 3px rgba(59,130,246,.15)}
-
-  /* Post list */
   .post{padding:18px}
   .post + .post{border-top:1px solid var(--border)}
   .post-title{font-size:18px; margin:0 0 6px}
-  .meta{font-size:13px; color:#cbd5e1; display:flex; gap:8px; align-items:center}
+  .meta{font-size:13px; color:#cbd5e1; display:flex; gap:8px; align-items:center; flex-wrap:wrap}
   .badge{
     display:inline-block; padding:2px 8px; font-size:12px;
     border-radius:999px; background:#0c1324; border:1px solid #273041; color:#cbd5e1;
   }
+  .badge.teacher{background:linear-gradient(180deg,var(--teacher),#0c1324); border-color:#1f3c78; color:#cfe1ff}
   .post-body{margin:10px 0 14px; line-height:1.6; color:#e2e8f0}
   .actions{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
-
-  /* Reply */
-  .reply-box{
-    margin-top:10px; padding:12px;
-    background:#0d1426; border:1px solid #273041; border-radius:12px;
-  }
-  .reply-item{
-    background:#0c1324; border:1px solid #273041;
-    padding:10px 12px; border-radius:10px; margin-top:10px;
-  }
-  .reply-meta{font-size:12px; color:#93a0b3; margin-top:4px}
-  .empty{
-    text-align:center; padding:28px; color:var(--muted)
-  }
-
-  /* Footer tip */
-  .footer-tip{
-    margin-top:16px; padding:14px; font-size:13px; color:#cbd5e1;
-    border-top:1px dashed #243044;
-  }
-
-  /* Responsive tweaks */
-  @media (max-width:520px){
-    .nav h1{font-size:18px}
-  }
+  .reply-box{margin-top:10px; padding:12px; background:#0d1426; border:1px solid #273041; border-radius:12px}
+  .reply-item{background:#0c1324; border:1px solid #273041; padding:10px 12px; border-radius:10px; margin-top:10px}
+  .reply-item.teacher{background:linear-gradient(180deg,var(--teacher),#0c1324); border-color:#1f3c78}
+  .reply-meta{font-size:12px; color:#93a0b3; margin-top:4px; display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+  .empty{text-align:center; padding:28px; color:var(--muted)}
+  .footer-tip{margin-top:16px; padding:14px; font-size:13px; color:#cbd5e1; border-top:1px dashed #243044}
+  @media (max-width:520px){.nav h1{font-size:18px}}
 </style>
 </head>
 <body>
 
-  <!-- Navbar -->
   <div class="nav">
     <h1>討論區</h1>
     <span class="badge" id="userBadge">訪客</span>
     <div class="spacer"></div>
     <button class="btn linklike" onclick="goStore()">前往商店</button>
-    <button class="btn linklike" onclick="goLogin()">返回登入</button>
+    <!-- 移除：返回登入 -->
     <button class="btn danger" onclick="logout()">登出</button>
   </div>
 
   <div class="wrap">
-    <!-- 發文卡片 -->
     <div id="postForm" class="card">
       <h3>發表問題</h3>
-      <div class="hint">已登入者會自動帶出使用者名稱與角色；未登入則以「匿名／訪客」發文。</div>
+      <div class="hint">已登入者會自動帶出使用者名稱與角色；未登入則以「匿名／訪客」發文。老師的回覆會顯示「老師」標記。</div>
 
       <label for="title">標題</label>
       <input id="title" type="text" placeholder="請輸入問題標題…"/>
@@ -150,7 +118,6 @@
       </div>
     </div>
 
-    <!-- 列表卡片 -->
     <div class="card" style="margin-top:16px;">
       <div id="posts"></div>
       <div id="emptyState" class="empty" style="display:none;">目前尚無貼文，搶先發一篇吧！</div>
@@ -164,25 +131,41 @@
 <script>
   // === 使用者狀態 ===
   let user = { name: "匿名", role: "訪客" };
+
+  function normalizeRole(r){
+    if(!r) return "";
+    const s = String(r).trim().toLowerCase();
+    if(["mentor","teacher","老師","教師"].includes(s)) return "mentor";
+    if(["student","學生"].includes(s)) return "student";
+    if(["visitor","guest","訪客"].includes(s)) return "guest";
+    return s;
+  }
+  function displayRole(r){
+    const n = normalizeRole(r);
+    if(n === "mentor") return "老師";
+    if(n === "student") return "學生";
+    if(n === "guest") return "訪客";
+    return r || "訪客";
+  }
+
   try {
     const stored = localStorage.getItem("user");
     if (stored) {
       const u = JSON.parse(stored);
-      // 依你後端回傳欄位命名調整（此處假設 user.username / user.role）
       user.name = u?.username || u?.name || "使用者";
       user.role = u?.role || "學生";
     }
   } catch (_) {}
-  document.getElementById("userBadge").textContent = `${user.name}（${user.role}）`;
+  const isTeacher = normalizeRole(user.role) === "mentor";
+  document.getElementById("userBadge").textContent = `${user.name}（${displayRole(user.role)}）`;
 
-  function goLogin(){ window.location.href = "login2.html"; }
   function logout(){
     localStorage.removeItem("token");
     localStorage.removeItem("user");
-    location.reload();
+    window.location.href = "login2.html";
   }
+  function goStore(){ window.location.href = "store.html"; }
 
-  // === 發文 ===
   function resetForm(){
     document.getElementById('title').value = '';
     document.getElementById('content').value = '';
@@ -198,7 +181,7 @@
       id: Date.now(),
       title, content,
       author: user.name,
-      role: user.role,
+      role: normalizeRole(user.role),
       createdAt: new Date().toISOString(),
       replies: []
     });
@@ -207,7 +190,12 @@
     renderPosts();
   }
 
+  function canDeletePost(post){
+    return isTeacher || post.author === user.name;
+  }
+
   function deletePost(postId){
+    if(!confirm("確認要刪除這篇貼文嗎？")) return;
     const posts = JSON.parse(localStorage.getItem('posts') || '[]');
     const next = posts.filter(p => p.id !== postId);
     localStorage.setItem('posts', JSON.stringify(next));
@@ -225,9 +213,35 @@
     post.replies.push({
       text,
       author: user.name,
-      role: user.role,
+      role: normalizeRole(user.role),
       createdAt: new Date().toISOString()
     });
+    localStorage.setItem('posts', JSON.stringify(posts));
+    renderPosts();
+  }
+
+  function replyToUser(postId, targetAuthor){
+    const box = document.getElementById(`box-${postId}`);
+    const input = document.getElementById(`reply-${postId}`);
+    if(box) box.style.display = 'block';
+    if(input){
+      if(!input.value.startsWith('@'+targetAuthor)){
+        input.value = `@${targetAuthor} ` + input.value;
+      }
+      input.focus();
+    }
+  }
+
+  function deleteReply(postId, idx){
+    const posts = JSON.parse(localStorage.getItem('posts') || '[]');
+    const post = posts.find(p => p.id === postId);
+    if(!post) return;
+    const r = post.replies[idx];
+    if(!r) return;
+    const allow = isTeacher || r.author === user.name;
+    if(!allow){ alert("你沒有權限刪除此留言。"); return; }
+    if(!confirm("確認要刪除這則留言嗎？")) return;
+    post.replies.splice(idx, 1);
     localStorage.setItem('posts', JSON.stringify(posts));
     renderPosts();
   }
@@ -241,10 +255,6 @@
     return `${Math.floor(diff/86400)} 天前`;
   }
 
-  function goStore(){
-  window.location.href = "store.html"; // 這裡改成你實際的商店頁面檔名
-}
-
   function renderPosts(){
     const container = document.getElementById('posts');
     const empty = document.getElementById('emptyState');
@@ -257,39 +267,62 @@
     }
     empty.style.display = 'none';
 
-    // 以時間倒序
     [...posts].sort((a,b)=>b.id - a.id).forEach(post=>{
       const div = document.createElement('div');
       div.className = 'post';
 
+      const authorBadgeClass = normalizeRole(post.role) === 'mentor' ? 'badge teacher' : 'badge';
+      const actionsHtml = `
+        <div class="actions">
+          <button class="btn" onclick="toggleReply(${post.id})">回覆</button>
+          ${canDeletePost(post) ? `<button class="btn danger" onclick="deletePost(${post.id})">刪除貼文</button>` : ''}
+        </div>
+      `;
+
+      const repliesHtml = post.replies.map((r, i) => {
+        const isTeacherReply = normalizeRole(r.role) === 'mentor';
+        const replyCls = isTeacherReply ? 'reply-item teacher' : 'reply-item';
+        const roleText = displayRole(r.role);
+        const roleBadge = isTeacherReply ? `<span class="badge teacher">老師回覆</span>` : '';
+        const canDeleteThis = isTeacher || r.author === user.name;
+        const teacherControls = isTeacher ? `<button class="btn" onclick="replyToUser(${post.id}, '${escapeJs(r.author)}')">回覆</button>` : '';
+        const deleteBtn = canDeleteThis ? `<button class="btn danger" onclick="deleteReply(${post.id}, ${i})">刪除</button>` : '';
+
+        return `
+          <div class="${replyCls}">
+            <div>${escapeHtml(r.text)}</div>
+            <div class="reply-meta">
+              <span class="badge">${escapeHtml(r.author)}（${roleText}）</span>
+              ${roleBadge}
+              <span>·</span>
+              <span>${timeAgo(r.createdAt)}</span>
+              ${teacherControls}
+              ${deleteBtn}
+            </div>
+          </div>
+        `;
+      }).join('');
+
       div.innerHTML = `
         <h3 class="post-title">${escapeHtml(post.title)}</h3>
         <div class="meta">
-          <span class="badge">${escapeHtml(post.author)}（${escapeHtml(post.role)}）</span>
+          <span class="${authorBadgeClass}">${escapeHtml(post.author)}（${displayRole(post.role)}）</span>
           <span>．</span>
           <span>${timeAgo(post.createdAt)}</span>
         </div>
-        <div class="post-body">${escapeHtml(post.content).replace(/\n/g,'<br/>')}</div>
+        <div class="post-body">${escapeHtml(post.content).replace(/\\n/g,'<br/>')}</div>
 
-        <div class="actions">
-          <button class="btn" onclick="toggleReply(${post.id})">回覆</button>
-          <button class="btn danger" onclick="deletePost(${post.id})">刪除</button>
-        </div>
+        ${actionsHtml}
 
         <div class="reply-box" id="box-${post.id}" style="display:none;">
-          <input type="text" id="reply-${post.id}" placeholder="回覆這篇問題…" />
+          <input type="text" id="reply-${post.id}" placeholder="${isTeacher ? '以老師身份回覆…（可自動@對象）' : '回覆這篇問題…'}" />
           <div class="row">
             <button class="btn primary" onclick="submitReply(${post.id}, 'reply-${post.id}')">送出回覆</button>
             <button class="btn" onclick="toggleReply(${post.id})">收起</button>
           </div>
         </div>
 
-        ${post.replies.map(r => `
-          <div class="reply-item">
-            <div>${escapeHtml(r.text)}</div>
-            <div class="reply-meta">${escapeHtml(r.author)}（${escapeHtml(r.role)}）・${timeAgo(r.createdAt)}</div>
-          </div>
-        `).join('')}
+        ${repliesHtml}
       `;
       container.appendChild(div);
     });
@@ -311,8 +344,10 @@
       .replace(/"/g,'&quot;')
       .replace(/'/g,'&#039;');
   }
+  function escapeJs(str){
+    return String(str).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+  }
 
-  // 初始渲染
   renderPosts();
 </script>
 </body>
