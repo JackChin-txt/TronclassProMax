@@ -84,6 +84,10 @@
     </select>
     <div class="hint">目前登入只依據錢包位址，不會傳送角色到後端。</div>
 
+    <!-- NEW: 名字（必填） -->
+    <label for="username">名字（必填）</label>
+    <input id="username" type="text" placeholder="請輸入名字" autocomplete="name" />
+
     <label for="walletId">錢包位址</label>
     <input id="walletId" type="text" placeholder="0x..." readonly />
 
@@ -103,6 +107,7 @@
     const statusEl = document.getElementById("status");
     const walletInput = document.getElementById("walletId");
     const roleSelect = document.getElementById("roleSelect");
+    const usernameInput = document.getElementById("username"); // NEW
 
     function setStatus(msg) { statusEl.textContent = msg || ""; }
 
@@ -139,15 +144,21 @@
       });
     }
 
-    // 登入：只送 walletId
+    // 登入：送 walletId + username（名字必填）
     async function login() {
       const walletId = (walletInput.value || "").trim();
+      const username = (usernameInput.value || "").trim(); // NEW
+
       if (!walletId) {
         setStatus("請先連接 MetaMask 以取得錢包位址。");
         return;
       }
+      if (!username) { // NEW
+        setStatus("請先輸入名字。");
+        return;
+      }
 
-      const payload = { walletId };
+      const payload = { walletId, username }; // NEW
 
       try {
         setStatus("登入中…");
@@ -168,22 +179,21 @@
         // 假設後端回：{ token, user }
         if (data.token) localStorage.setItem("token", data.token);
 
-        // --- NEW: 將目前選到的角色寫入 localStorage.user.role，供討論區顯示 ---
-        const selectedRole = (roleSelect.value === "mentor") ? "mentor" : "student";  // 只允許兩種
+        const selectedRole = (roleSelect.value === "mentor") ? "mentor" : "student";
         const serverUser = data.user || {};
-        const username = serverUser.username || serverUser.name || ("使用者_" + walletId.slice(2, 8));
+        // NEW: 以剛填的名字優先
+        const finalName = username || serverUser.username || serverUser.name || ("使用者_" + walletId.slice(2, 8));
 
         const mergedUser = {
           ...serverUser,
-          username,
+          username: finalName, // NEW
           walletId,
-          role: selectedRole  // 關鍵：這裡決定討論區的「學生/老師」標示
+          role: selectedRole
         };
         localStorage.setItem("user", JSON.stringify(mergedUser));
-        // --- NEW: 結束 ---
 
         setStatus("✅ 登入成功，前往討論區…");
-        window.location.href = "discuss2.html";
+        window.location.href = "post.html";
       } catch (err) {
         console.error(err);
         setStatus("⚠️ 連線失敗，請確認本機 API 是否在 3000 埠運作。");
@@ -198,7 +208,7 @@
     document.getElementById("btnLogin").addEventListener("click", login);
 
     // 初始提示
-    setStatus("請先連接 MetaMask，再按登入。");
+    setStatus("請先連接 MetaMask、填好名字，再按登入。");
 
     // 若是註冊後回來，顯示成功提示並嘗試帶入已授權帳號
     (function showRegisteredNotice() {
