@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8"/>
+<title>文章內容與留言</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<style>
+  :root{
+    --bg:#0b0f19; --card:#121826; --card-2:#0f172a;
+    --muted:#9aa4b2; --text:#e5e7eb; --border:#1f2937;
+    --shadow:0 10px 30px rgba(0,0,0,.35); --radius:14px;
+    --primary:#4caf50; --primary-hover:#45a049;
+    --danger:#ef4444; --danger-hover:#dc2626; --accent:#3b82f6;
+    --teacher:#0e1b35;
+  }
+  *{box-sizing:border-box}
+  body{
+    font-family:Arial,"Microsoft JhengHei",sans-serif; margin:0; min-height:100vh; color:var(--text);
+    background: radial-gradient(1200px 600px at 20% -10%, #12233f 0%, transparent 60%),
+                radial-gradient(900px 600px at 100% 0%, #1a2638 0%, transparent 60%), var(--bg);
+  }
+  .nav{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:12px;padding:16px 20px;
+       background:rgba(9,12,20,.65);backdrop-filter:blur(6px);border-bottom:1px solid var(--border)}
+  .nav h1{font-size:20px;margin:0}
+  .nav .spacer{flex:1}
+  .btn{padding:10px 14px;border:none;border-radius:10px;background:var(--card-2);color:var(--text);
+       cursor:pointer;border:1px solid #273041;transition:background .15s ease,transform .05s ease}
+  .btn:active{transform:translateY(1px)}
+  .btn.primary{background:var(--primary);border-color:transparent}
+  .btn.primary:hover{background:var(--primary-hover)}
+  .btn.danger{background:var(--danger);border-color:transparent}
+  .btn.danger:hover{background:var(--danger-hover)}
+  .btn.linklike{background:transparent;border-color:transparent;color:#93c5fd}
+  .btn.linklike:hover{text-decoration:underline}
+  .wrap{max-width:980px;margin:24px auto;padding:0 16px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow)}
+  .post{padding:20px}
+  .title{font-size:22px;margin:0 0 8px}
+  .meta{font-size:13px;color:#cbd5e1;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .content{margin-top:10px;line-height:1.7;color:#e2e8f0;white-space:pre-wrap}
+  .hr{height:1px;background:#243044;margin:16px 0}
+  .comment-form{padding:16px;border-top:1px dashed #243044;display:flex;flex-direction:column;gap:10px}
+  textarea,input[type="text"]{
+    width:100%; padding:12px; border:1px solid #273041; border-radius:10px; outline:none;
+    background:#0f172a; color:var(--text);
+  }
+  textarea:focus,input[type="text"]:focus{border-color:var(--accent); box-shadow:0 0 0 3px rgba(59,130,246,.15)}
+  .comments{padding:16px}
+  .cmt{background:#0c1324;border:1px solid #273041;padding:12px;border-radius:12px}
+  .cmt + .cmt{margin-top:12px}
+  .cmeta{font-size:12px;color:#93a0b3;display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px}
+  .badge{display:inline-block;padding:2px 8px;font-size:12px;border-radius:999px;background:#0c1324;border:1px solid #273041;color:#cbd5e1}
+  .badge.teacher{background:linear-gradient(180deg,var(--teacher),#0c1324);border-color:#1f3c78;color:#cfe1ff}
+  .empty{text-align:center;padding:28px;color:var(--muted)}
+</style>
+</head>
+<body>
+  <div class="nav">
+    <h1>文章內容</h1>
+    <button class="btn linklike" onclick="location.href='post.html'">← 返回清單</button>
+    <div class="spacer"></div>
+    <span id="userBadge" class="btn linklike" style="cursor:default"></span>
+    <button class="btn" onclick="logout()">登出</button>
+  </div>
+
+  <div class="wrap">
+    <div class="card">
+      <div id="post" class="post">
+        <h2 class="title" id="p-title">(讀取中…)</h2>
+        <div class="meta" id="p-meta"></div>
+        <div class="content" id="p-content"></div>
+      </div>
+
+      <div class="comment-form">
+        <label for="cmtContent">新增留言</label>
+        <textarea id="cmtContent" rows="4" placeholder="輸入留言內容…"></textarea>
+        <div>
+          <button class="btn primary" onclick="submitComment()">送出留言</button>
+        </div>
+        <div id="tip" class="empty" style="display:none;"></div>
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="comments" id="comments"></div>
+      <div id="empty" class="empty" style="display:none;">尚無留言，搶先留言吧！</div>
+    </div>
+  </div>
+
+<script>
+  // === API 根路徑：同網域可留空；否則指向後端 ===
+  const API_BASE = (location.origin.includes('localhost:3000') || location.origin.startsWith('http://localhost:3000'))
+    ? '' : 'http://localhost:3000';
+
+  // ========== 基本資料 ==========
+  function qs(k){ return new URL(location.href).searchParams.get(k); }
+  const postId = qs('id');
+
+  function displayRole(r){
+    const s = String(r||'').trim().toLowerCase();
+    if(['mentor','teacher','老師','教師'].includes(s)) return '老師';
+    if(['student','學生'].includes(s)) return '學生';
+    return '訪客';
+  }
+  const user = (()=>{ try{
+    const u = JSON.parse(localStorage.getItem('user')||'{}');
+    return { id: u._id || u.id, name: u.username||u.name||'使用者', role: u.role||'學生' };
+  }catch{ return { name:'使用者', role:'學生' } }})();
+  document.getElementById('userBadge').textContent = `${user.name}（${displayRole(user.role)}）`;
+
+  function logout(){
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    location.href='login2.html';
+  }
+  function timeAgo(iso){
+    if(!iso) return '剛剛';
+    const diff=(Date.now()-new Date(iso).getTime())/1000;
+    if(diff<60) return `${Math.floor(diff)} 秒前`;
+    if(diff<3600) return `${Math.floor(diff/60)} 分鐘前`;
+    if(diff<86400) return `${Math.floor(diff/3600)} 小時前`;
+    return `${Math.floor(diff/86400)} 天前`;
+  }
+  function escapeHtml(s){
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+  }
+  function authHeader(){
+    const t = localStorage.getItem('token');
+    return t ? { 'Authorization': 'Bearer ' + t } : {};
+  }
+  async function safeText(res){
+    try{
+      const txt = await res.text();
+      try{
+        const j = JSON.parse(txt);
+        return (j.message || j.error || txt || '').toString().slice(0,200);
+      }catch{
+        return (txt || '').toString().slice(0,200);
+      }
+    }catch{ return ''; }
+  }
+
+  // ========== 載入文章 ==========
+  async function loadPost(){
+    const titleEl = document.getElementById('p-title');
+    const metaEl  = document.getElementById('p-meta');
+    const contEl  = document.getElementById('p-content');
+
+    if(!postId){ titleEl.textContent='找不到文章 ID'; return; }
+    try{
+      // GET /api/posts/:id
+      const res = await fetch(`${API_BASE}/api/posts/${encodeURIComponent(postId)}`);
+      if(!res.ok) throw new Error('無法取得文章');
+      const p = await res.json();
+
+      titleEl.textContent = p.title || '(無標題)';
+      metaEl.textContent =
+        `${escapeHtml(p.authorName || p.author || '匿名')} · ${timeAgo(p.createdAt || p.updatedAt)}`;
+
+      // 純文字顯示（安全），避免雙重轉義
+      contEl.textContent = p.content || '';
+
+      // 若後端有回傳作者 ID，可用於「顯示設最佳」的前端判斷
+      if (p.authorId) window.__postAuthorId = String(p.authorId);
+    }catch(e){
+      titleEl.textContent = '讀取失敗';
+      contEl.textContent = e.message || '—';
+    }
+  }
+
+  // ========== 載入留言（依後端實際欄位命名修正） ==========
+  async function loadComments(){
+    const box = document.getElementById('comments');
+    const empty = document.getElementById('empty');
+    box.innerHTML = ''; empty.style.display='none';
+
+    try{
+      // 公開端點：GET /api/comments/post/:postId
+      const res = await fetch(`${API_BASE}/api/comments/post/${encodeURIComponent(postId)}`);
+      if(!res.ok) throw new Error('無法取得留言');
+      const list = await res.json();
+
+      if(!Array.isArray(list) || list.length===0){ empty.style.display=''; return; }
+
+      list.forEach(c=>{
+        // 後端 populate 後的 author 是物件：{ _id, username }
+        const authorName =
+          (c.author && typeof c.author === 'object')
+            ? (c.author.username || c.author.name || '匿名')
+            : (c.authorName || c.author || '匿名');
+
+        // 目前後端沒有提供 authorRole，這裡仍保留函式，預設顯示「訪客」
+        const isTeacher = ['mentor','teacher','老師','教師']
+          .includes(String(c.authorRole||'').toLowerCase());
+
+        // 後端最佳欄位：bestReply（布林）
+        const isBest = !!c.bestReply;
+
+        // 讚數：numOfLikes 或 likedBy.length
+        const likeCnt =
+          (typeof c.numOfLikes === 'number') ? c.numOfLikes :
+          (Array.isArray(c.likedBy) ? c.likedBy.length : 0);
+
+        // 可選 UX：只有文章作者顯示「設為最佳」按鈕（後端仍會驗）
+        const currentUserId = String(user.id || '');
+        const postAuthorId  = String(window.__postAuthorId || c.postAuthorId || '');
+        const canMarkBest   = postAuthorId && currentUserId && (currentUserId === postAuthorId);
+
+        const div = document.createElement('div');
+        div.className = 'cmt';
+        div.innerHTML = `
+          <div>${escapeHtml(c.content || c.text || '')}</div>
+          <div class="cmeta">
+            <span class="badge ${isTeacher?'teacher':''}">
+              ${escapeHtml(authorName)}（${displayRole(c.authorRole)}）
+            </span>
+            <span>·</span>
+            <span>${timeAgo(c.createdAt || c.updatedAt)}</span>
+            ${isBest ? '<span>·</span><span class="badge">🏆 最佳</span>' : ''}
+            <span>·</span>
+            <button class="btn linklike" onclick="likeComment('${c._id||c.id}')">👍 ${likeCnt}</button>
+            ${canMarkBest ? `<button class="btn linklike" onclick="markBest('${c._id||c.id}')">🏆 設為最佳</button>` : ''}
+          </div>
+        `;
+        box.appendChild(div);
+      });
+    }catch(e){
+      box.innerHTML = `<div class="empty">留言讀取失敗：${escapeHtml(e.message)}</div>`;
+    }
+  }
+
+  // ========== 送出留言（需要登入） ==========
+  async function submitComment(){
+    const tip = document.getElementById('tip');
+    tip.style.display='none'; tip.textContent='';
+    const text = document.getElementById('cmtContent').value.trim();
+    if(!text){ tip.textContent='請輸入留言內容'; tip.style.display=''; return; }
+
+    const token = localStorage.getItem('token');
+    if(!token){
+      tip.textContent='請先登入後再留言（將前往登入頁）';
+      tip.style.display='';
+      setTimeout(()=>location.href='login2.html', 600);
+      return;
+    }
+
+    try{
+      // POST /api/comments （驗證）
+      const res = await fetch(`${API_BASE}/api/comments`, {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', ...authHeader() },
+        body: JSON.stringify({ postId, content: text })
+      });
+      if(!res.ok){
+        const msg = await safeText(res);
+        throw new Error(msg || '留言失敗');
+      }
+      document.getElementById('cmtContent').value='';
+      await loadComments();
+      document.getElementById('comments')?.lastElementChild?.scrollIntoView({ behavior:'smooth' });
+    }catch(e){
+      tip.textContent = e.message || '留言失敗';
+      tip.style.display='';
+    }
+  }
+
+  async function likeComment(commentId){
+    const token = localStorage.getItem('token');
+    if(!token){ alert('請先登入'); return; }
+    try{
+      // PUT /api/comments/:id/like
+      const res = await fetch(`${API_BASE}/api/comments/${encodeURIComponent(commentId)}/like`, {
+        method:'PUT', headers:{ ...authHeader() }
+      });
+      if(!res.ok){
+        const msg = await safeText(res);
+        throw new Error(msg || '按讚失敗');
+      }
+      await loadComments();
+    }catch(e){ alert(e.message); }
+  }
+
+  async function markBest(commentId){
+    const token = localStorage.getItem('token');
+    if(!token){ alert('請先登入'); return; }
+    try{
+      // PUT /api/comments/:commentId/best
+      const res = await fetch(`${API_BASE}/api/commen ts/${encodeURIComponent(commentId)}/best`, {
+        method:'PUT', headers:{ ...authHeader() }
+      });
+      if(!res.ok){
+        const msg = await safeText(res);
+        throw new Error(msg || '設定最佳留言失敗（只有文章作者能設定）');
+      }
+      await loadComments();
+    }catch(e){ alert(e.message); }
+  }
+
+  // 初始化
+  loadPost().then(loadComments);
+</script>
+</body>
+</html>
