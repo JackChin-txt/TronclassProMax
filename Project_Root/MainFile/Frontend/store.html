@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8"/>
+<title>商店 / 點數兌換</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<style>
+  :root{--bg:#0b0f19;--card:#121826;--card-2:#0f172a;--muted:#9aa4b2;--text:#e5e7eb;--border:#1f2937;--shadow:0 10px 30px rgba(0,0,0,.35);--radius:14px;--primary:#4caf50;--primary-hover:#45a049;--accent:#3b82f6}
+  *{box-sizing:border-box}
+  body{font-family:Arial,"Microsoft JhengHei",sans-serif;margin:0;min-height:100vh;color:var(--text);
+       background:radial-gradient(1200px 600px at 20% -10%,#12233f 0%,transparent 60%),radial-gradient(900px 600px at 100% 0%,#1a2638 0%,transparent 60%),var(--bg)}
+  .nav{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:12px;padding:16px 20px;background:rgba(9,12,20,.65);backdrop-filter:blur(6px);border-bottom:1px solid var(--border)}
+  .nav h1{font-size:20px;margin:0}.nav .spacer{flex:1}
+  .btn{padding:10px 14px;border:1px solid #273041;border-radius:10px;background:var(--card-2);color:var(--text);cursor:pointer;transition:background .15s ease,transform .05s ease}
+  .btn:active{transform:translateY(1px)} .btn.primary{background:var(--primary);border-color:transparent}
+  .btn.primary:hover{background:var(--primary-hover)} .btn.link{background:transparent;border-color:transparent;color:#93c5fd}
+  .btn.link:hover{text-decoration:underline}
+  .wrap{max-width:980px;margin:24px auto;padding:0 16px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow)}
+  .balance{padding:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
+  .item{padding:16px}
+  .item h3{margin:0 0 6px;font-size:18px}
+  .muted{color:var(--muted);font-size:14px}
+  .price{font-weight:700}
+</style>
+</head>
+<body>
+  <div class="nav">
+    <h1>商店 / 點數兌換</h1>
+    <div class="spacer"></div>
+    <button class="btn link" onclick="location.href='post.html'">← 返回文章清單</button>
+    <button class="btn" onclick="logout()">登出</button>
+  </div>
+
+  <div class="wrap">
+    <div class="card balance">
+      <div>目前點數餘額：<b id="bal">--</b></div>
+      <button class="btn" onclick="refreshBalance()">刷新</button>
+    </div>
+
+    <div class="grid" id="storeGrid"></div>
+  </div>
+
+<script>
+  const LEDGER_KEY='pointsLedger';
+  function getLedger(){try{return JSON.parse(localStorage.getItem(LEDGER_KEY)||'{}')}catch{return{}}}
+  function setLedger(o){localStorage.setItem(LEDGER_KEY,JSON.stringify(o||{}))}
+  function getUser(){try{return JSON.parse(localStorage.getItem('user')||'{}')}catch{return{}}}
+  function currentUserId(){const u=getUser();return String(u._id||u.id||'')}
+  function getBalance(){const l=getLedger();return Number(l[currentUserId()]||0)}
+  function addPoints(delta){const l=getLedger();const id=currentUserId();l[id]=(Number(l[id]||0)+Number(delta||0))|0;setLedger(l)}
+
+  function logout(){localStorage.removeItem('token');localStorage.removeItem('user');location.href='login2.html'}
+
+  async function refreshBalance(){document.getElementById('bal').textContent=getBalance()}
+
+  // 假資料；正式改成打你後端的 /api/rewards 清單
+  const items=[
+    { id:'coupon-50', name:'作業加分券 (50)', cost:50, desc:'期末成績 +1（示例）' },
+    { id:'badge-30',  name:'榮譽徽章 (30)',   cost:30, desc:'個人頁徽章（示例）' },
+    { id:'notify-10', name:'老師提醒券 (10)', cost:10, desc:'請老師寄信提醒（示例）' },
+  ];
+
+  function renderStore(){
+    const grid=document.getElementById('storeGrid'); grid.innerHTML='';
+    items.forEach(it=>{
+      const div=document.createElement('div'); div.className='card item';
+      div.innerHTML=`
+        <h3>${it.name}</h3>
+        <div class="muted">${it.desc||''}</div>
+        <div style="margin-top:8px">價格：<span class="price">${it.cost}</span> 分</div>
+        <div style="margin-top:12px"><button class="btn primary">兌換</button></div>
+      `;
+      div.querySelector('button').addEventListener('click',()=>{
+        if(getBalance()<it.cost){alert('點數不足');return}
+        addPoints(-it.cost);
+        refreshBalance();
+        alert('兌換成功！（前端扣點）');
+      });
+      grid.appendChild(div);
+    });
+  }
+
+  (async function init(){renderStore();await refreshBalance()})();
+</script>
+</body>
+</html>

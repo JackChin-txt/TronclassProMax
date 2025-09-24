@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<title>文章列表</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<style>
+  :root{
+    --bg:#0b0f19;--card:#121826;--card-2:#0f172a;--muted:#9aa4b2;--text:#e5e7eb;--border:#1f2937;
+    --shadow:0 10px 30px rgba(0,0,0,.35);--radius:14px;--accent:#2563eb;--accentText:#dbeafe;
+    --success:#22c55e;
+  }
+  *{box-sizing:border-box}
+  body{
+    font-family:Arial,"Microsoft JhengHei",sans-serif;margin:0;min-height:100vh;color:var(--text);
+    background:radial-gradient(1200px 600px at 20% -10%,#12233f 0%,transparent 60%),
+               radial-gradient(900px 600px at 100% 0%,#1a2638 0%,transparent 60%),var(--bg)
+  }
+  .nav{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:12px;padding:16px 20px;
+       background:rgba(9,12,20,.65);backdrop-filter:blur(6px);border-bottom:1px solid var(--border)}
+  .nav h1{font-size:20px;margin:0}
+  .spacer{flex:1}
+  .badge-user{font-size:13px;color:#cbd5e1;background:rgba(148,163,184,.15);
+              border:1px solid #273041;border-radius:999px;padding:6px 10px}
+  .btn{padding:8px 14px;border-radius:8px;background:var(--card-2);color:var(--text);border:1px solid #273041;cursor:pointer}
+  .btn:hover{background:#1a2335}
+  .btn.primary{background:var(--success);border:none}
+  .wrap{max-width:980px;margin:24px auto;padding:0 16px}
+  .actions{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+  .list{display:grid;gap:14px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px}
+  .title{font-size:18px;font-weight:700;margin:0 0 6px}
+  .title a{color:#e5e7eb;text-decoration:none}
+  .title a:hover{text-decoration:underline}
+  .meta{font-size:13px;color:#cbd5e1;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .content{margin-top:10px;color:#e2e8f0}
+  .badge{padding:2px 6px;border-radius:8px;background:var(--accent);color:var(--accentText);font-size:12px;margin-left:6px}
+  .empty{text-align:center;color:#9aa4b2;padding:28px}
+</style>
+</head>
+<body>
+  <div class="nav">
+    <h1>文章列表</h1>
+    <div class="spacer"></div>
+
+    <!-- 顯示登入者 -->
+    <span id="userBadge" class="badge-user">未登入</span>
+
+    <!-- 只有登入時顯示：作者中心 -->
+    <button class="btn" id="btnAuthorCenter" onclick="location.href='author_center.html'" style="display:none">作者中心</button>
+
+    <!-- 依登入狀態切換的按鈕 -->
+    <button class="btn" id="btnLogin" onclick="location.href='login2.html'">登入</button>
+    <button class="btn" id="btnLogout" style="display:none" onclick="logout()">登出</button>
+  </div>
+
+  <div class="wrap">
+    <div class="actions">
+      <button class="btn primary" onclick="location.href='create_post.html'">＋ 建立文章</button>
+      <button class="btn" onclick="location.href='store.html'">🛍 前往商店</button>
+      <button class="btn" id="btnRefresh">↻ 重新整理</button>
+    </div>
+
+    <div id="list" class="list"></div>
+    <div id="empty" class="empty" style="display:none;">目前沒有文章。</div>
+  </div>
+
+<script>
+  const API = 'http://localhost:3000/api';
+
+  // --- 使用者顯示 ---
+  function getCurrentUser(){
+    try{ return JSON.parse(localStorage.getItem('user') || '{}'); }catch{ return {}; }
+  }
+  function displayRole(r){
+    const s = String(r||'').toLowerCase();
+    if(['teacher','mentor','老師','教師'].includes(s)) return '老師';
+    if(['student','學生'].includes(s)) return '學生';
+    return s || '訪客';
+  }
+  function refreshUserBadge(){
+    const u = getCurrentUser();
+    const hasToken = !!(localStorage.getItem('token') || localStorage.getItem('authToken'));
+    const name = u.username || u.name || (hasToken ? '使用者' : '未登入');
+    const role = u.role ? `（${displayRole(u.role)}）` : '';
+    document.getElementById('userBadge').textContent = hasToken ? `👤 ${name}${role}` : '未登入';
+
+    // 登入/登出按鈕顯示
+    document.getElementById('btnLogin').style.display  = hasToken ? 'none' : '';
+    document.getElementById('btnLogout').style.display = hasToken ? '' : 'none';
+    // 新增：登入後顯示「作者中心」
+    const ac = document.getElementById('btnAuthorCenter');
+    if (ac) ac.style.display = hasToken ? '' : 'none';
+  }
+  function logout(){
+    localStorage.removeItem('token');
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('user');
+    refreshUserBadge();
+  }
+  window.addEventListener('storage', (e)=>{ if(['user','token','authToken'].includes(e.key)) refreshUserBadge(); });
+
+  // --- UI 小工具 ---
+  function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));}
+  function timeAgo(iso){if(!iso)return'';const d=(Date.now()-new Date(iso))/1000;
+    if(d<60)return`${Math.floor(d)} 秒前`;if(d<3600)return`${Math.floor(d/60)} 分鐘前`;
+    if(d<86400)return`${Math.floor(d/3600)} 小時前`;return`${Math.floor(d/86400)} 天前`; }
+
+  // --- 抓貼文清單 ---
+  async function fetchPosts(){
+    try{
+      const res = await fetch(`${API}/posts`);
+      if(!res.ok){ console.warn('fetchPosts 非 2xx', res.status); return []; }
+      const data = await res.json();
+      return Array.isArray(data.posts) ? data.posts : data; // 相容不同回傳格式
+    }catch(e){ console.warn('fetchPosts 例外', e); return []; }
+  }
+
+  // 渲染單張貼文卡片（含 Best Reply 徽章）
+  function renderPost(p){
+    const pid = String(p._id || p.id);
+    const authorName = p.author?.username || p.authorName || '匿名';
+    const content = String(p.content||'');
+    const excerpt = content.length > 140 ? content.slice(0,140)+'…' : content;
+
+    // 後端欄位：bestReply（布林）或 bestReplyComment（有值代表已選）
+    const hasBest = Boolean(p.bestReply === true || p.bestReplyComment);
+
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <h3 class="title">
+        <a href="comment.html?id=${encodeURIComponent(pid)}">${escapeHtml(p.title||'(無標題)')}</a>
+      </h3>
+      <div class="meta">
+        <span>${escapeHtml(authorName)}</span><span>·</span><span>${timeAgo(p.createdAt)}</span>
+        ${hasBest ? `<span class="badge">Best Reply</span>` : ''}
+      </div>
+      <div class="content">${escapeHtml(excerpt)}</div>
+    `;
+    return card;
+  }
+
+  async function loadPosts(){
+    const list = document.getElementById('list');
+    const empty = document.getElementById('empty');
+    list.innerHTML = ''; empty.style.display = 'none';
+
+    const posts = await fetchPosts();
+    if(!posts.length){ empty.style.display=''; return; }
+
+    posts.sort((a,b)=> new Date(b.createdAt) - new Date(a.createdAt));
+    posts.forEach(p => list.appendChild(renderPost(p)));
+  }
+
+  // --- 初始化 ---
+  document.getElementById('btnRefresh').addEventListener('click', loadPosts);
+  (async function init(){
+    refreshUserBadge();
+    await loadPosts();
+  })();
+</script>
+</body>
+</html>

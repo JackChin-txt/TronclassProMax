@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<title>作者中心｜我的貼文與留言管理</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<style>
+  :root{
+    --bg:#0b0f19;--card:#121826;--card-2:#0f172a;--muted:#9aa4b2;--text:#e5e7eb;--border:#1f2937;
+    --shadow:0 10px 30px rgba(0,0,0,.35);--radius:14px;--accent:#2563eb;--accentText:#dbeafe;--success:#22c55e;
+  }
+  *{box-sizing:border-box}
+  body{
+    font-family:Arial,"Microsoft JhengHei",sans-serif;margin:0;min-height:100vh;color:var(--text);
+    background:radial-gradient(1200px 600px at 20% -10%,#12233f 0%,transparent 60%),
+               radial-gradient(900px 600px at 100% 0%,#1a2638 0%,transparent 60%),var(--bg)
+  }
+  .nav{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:12px;padding:14px 18px;
+       background:rgba(9,12,20,.65);backdrop-filter:blur(6px);border-bottom:1px solid var(--border)}
+  .nav h1{margin:0;font-size:20px}
+  .spacer{flex:1}
+  .user-link{cursor:pointer}
+  .badge-user{font-size:13px;color:#cbd5e1;background:rgba(148,163,184,.15);border:1px solid #273041;border-radius:999px;padding:6px 10px}
+  .btn{padding:8px 12px;border-radius:8px;background:var(--card-2);color:var(--text);border:1px solid #273041;cursor:pointer}
+  .btn:hover{background:#1a2335}
+  .btn.primary{background:var(--success);border:none}
+  .wrap{max-width:1000px;margin:22px auto;padding:0 16px}
+  .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;align-items:center}
+  .search{flex:1;min-width:220px}
+  .search input{width:100%;padding:10px;border-radius:10px;border:1px solid #273041;background:#0f172a;color:#e5e7eb}
+  .switch{display:flex;align-items:center;gap:6px;font-size:13px;color:#cbd5e1}
+  .list{display:grid;gap:14px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow)}
+  .post-head{padding:14px 16px;border-bottom:1px solid var(--border)}
+  .title{margin:0 0 6px;font-size:18px}
+  .title a{color:#e5e7eb;text-decoration:none}
+  .title a:hover{text-decoration:underline}
+  .meta{font-size:13px;color:#cbd5e1;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .badge{padding:2px 6px;border-radius:8px;background:var(--accent);color:var(--accentText);font-size:12px}
+  .body{padding:10px 16px}
+  .comments{display:grid;gap:10px}
+  .c-row{display:flex;gap:10px;align-items:flex-start;justify-content:space-between;border:1px solid #273041;background:#0f172a;border-radius:10px;padding:10px}
+  .c-meta{font-size:13px;color:#cbd5e1;margin-bottom:4px}
+  .c-author{font-weight:700}
+  .c-text{white-space:pre-wrap}
+  .c-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .like-btn.active{background:#1e293b}
+  .empty{text-align:center;color:var(--muted);padding:24px}
+  .pill{font-size:12px;padding:4px 8px;border:1px solid #273041;border-radius:999px;background:#0f172a;color:#cbd5e1}
+</style>
+</head>
+<body>
+  <div class="nav">
+    <h1>作者中心</h1>
+    <div class="spacer"></div>
+
+    <!-- 點名字切換「只看我的貼文 / 所有貼文」 -->
+    <span id="userBadge" class="badge-user user-link" title="點我只看我的貼文">未登入</span>
+
+    <button class="btn" onclick="location.href='post.html'">文章列表</button>
+    <button class="btn" onclick="location.href='store.html'">商店</button>
+    <button class="btn" id="btnLogin" onclick="location.href='login2.html'">登入</button>
+    <button class="btn" id="btnLogout" style="display:none" onclick="logout()">登出</button>
+  </div>
+
+  <div class="wrap">
+    <div class="toolbar">
+      <div class="search"><input id="q" placeholder="搜尋我的貼文標題或內文…" /></div>
+      <span id="filterPill" class="pill">只看我的貼文</span>
+      <label class="switch">
+        <input id="toggleOthers" type="checkbox" checked />
+        <span>只看別人的留言</span>
+      </label>
+      <button class="btn" id="btnRefresh">↻ 重新整理</button>
+    </div>
+
+    <div id="postList" class="list"></div>
+    <div id="empty" class="empty" style="display:none;">目前沒有符合條件的貼文。</div>
+  </div>
+
+<script>
+  const API = 'http://localhost:3000/api';
+
+  /* ===== 使用者 & 顯示 ===== */
+  function getCurrentUser(){ try{ return JSON.parse(localStorage.getItem('user') || '{}'); }catch{ return {}; } }
+  function refreshUserBadge(){
+    const u=getCurrentUser();
+    const has=!!(localStorage.getItem('token')||localStorage.getItem('authToken'));
+    const name=u.username||u.name||(has?'使用者':'未登入');
+    document.getElementById('userBadge').textContent = has ? `👤 ${name}` : '未登入';
+    document.getElementById('btnLogin').style.display  = has ? 'none' : '';
+    document.getElementById('btnLogout').style.display = has ? '' : 'none';
+  }
+  function logout(){ localStorage.removeItem('token'); localStorage.removeItem('authToken'); localStorage.removeItem('user'); refreshUserBadge(); }
+
+  // 點使用者名稱切換「只看我的貼文」
+  let onlyMine = true;
+  document.getElementById('userBadge').addEventListener('click', ()=>{
+    onlyMine = !onlyMine;
+    document.getElementById('filterPill').textContent = onlyMine ? '只看我的貼文' : '顯示所有貼文';
+    loadPosts();
+  });
+
+  /* ===== 小工具 ===== */
+  function authHeaders(){ const t=localStorage.getItem('token')||localStorage.getItem('authToken'); return t?{'Content-Type':'application/json','Authorization':'Bearer '+t}:{'Content-Type':'application/json'}; }
+  function currentUserId(){ try{ const u=JSON.parse(localStorage.getItem('user')||'{}'); return String(u._id||u.id||''); }catch{ return ''; } }
+  function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));}
+  function timeAgo(iso){if(!iso)return'';const d=(Date.now()-new Date(iso))/1000; if(d<60)return`${Math.floor(d)} 秒前`; if(d<3600)return`${Math.floor(d/60)} 分鐘前`; if(d<86400)return`${Math.floor(d/3600)} 小時前`; return`${Math.floor(d/86400)} 天前`; }
+
+  /* ===== 前端 points 錢包 ===== */
+  const LEDGER_KEY='pointsLedger';
+  function getLedger(){ try{ return JSON.parse(localStorage.getItem(LEDGER_KEY)||'{}'); }catch{ return {}; } }
+  function setLedger(o){ localStorage.setItem(LEDGER_KEY, JSON.stringify(o||{})); }
+  function addPoints(userId, delta){
+    const l=getLedger(); l[userId]=(Math.max(0, Number(l[userId]||0) + Number(delta||0))); setLedger(l);
+  }
+
+  /* ===== API：posts & comments ===== */
+  async function fetchPosts(){
+    try{
+      const res = await fetch(`${API}/posts`);
+      if(!res.ok){ console.warn('fetchPosts 非 2xx',res.status); return []; }
+      const data = await res.json();
+      return Array.isArray(data.posts) ? data.posts : data;
+    }catch(e){ console.warn('fetchPosts 例外',e); return []; }
+  }
+
+  async function fetchComments(postId){
+    try{
+      let r = await fetch(`${API}/comments/post/${encodeURIComponent(postId)}`, {headers:authHeaders()});
+      if(r.ok){ const d = await r.json(); return Array.isArray(d.comments)?d.comments:d; }
+      if(r.status===404){
+        r = await fetch(`${API}/comments?postId=${encodeURIComponent(postId)}`, {headers:authHeaders()});
+        if(r.ok){ const d = await r.json(); return Array.isArray(d.comments)?d.comments:d; }
+      }
+      return [];
+    }catch(e){ console.warn('fetchComments 例外',e); return []; }
+  }
+
+  async function likeRequest(commentId){
+    const r = await fetch(`${API}/comments/${encodeURIComponent(commentId)}/like`, {method:'PUT', headers:authHeaders()});
+    if(!r.ok) throw new Error(`like 失敗: ${r.status}`);
+    return await r.json().catch(()=>({}));
+  }
+
+  /* ===== 渲染 ===== */
+  function renderCommentRow(c, postAuthorId){
+    const cid = String(c._id||c.id||'');
+    const cAuthorId = (c.author && (c.author._id||c.author.id)) || c.author || c.authorId || c.userId || '';
+    const cAuthorName = c.author?.username || c.authorName || '匿名';
+    const likedByMe = Array.isArray(c.likedBy) ? c.likedBy.some(x=>String(x._id||x.id||x)===currentUserId()) : false;
+    const likes = Number(c.numOfLikes ?? c.likes ?? (Array.isArray(c.likedBy)?c.likedBy.length:0) ?? 0);
+
+    const row = document.createElement('div');
+    row.className='c-row';
+    row.innerHTML=`
+      <div style="flex:1;min-width:0">
+        <div class="c-meta"><span class="c-author">${escapeHtml(cAuthorName)}</span> · ${timeAgo(c.createdAt)}</div>
+        <div class="c-text">${escapeHtml(c.content||'')}</div>
+      </div>
+      <div class="c-actions">
+        <span>讚數：<b id="lk-${cid}">${likes}</b></span>
+        <button class="btn like-btn ${likedByMe?'active':''}" data-like="${cid}" data-target="${cAuthorId}">👍 ${likedByMe?'已讚':'按讚/取消'}</button>
+      </div>
+    `;
+
+    // like：作者按讚 → 留言者 +50 / 取消 -50
+    row.querySelector(`[data-like="${cid}"]`)?.addEventListener('click', async (ev)=>{
+      if(!localStorage.getItem('token') && !localStorage.getItem('authToken')){ location.href='login2.html'; return; }
+      const meIsAuthor = currentUserId() === String(postAuthorId||'');
+      if(!meIsAuthor){ alert('只有貼文作者可在此按讚轉分數'); return; }
+
+      const b=ev.currentTarget; b.disabled=true;
+      try{
+        const data = await likeRequest(cid);
+        const after = Number(data.likes ?? data.numOfLikes ?? document.getElementById(`lk-${cid}`)?.textContent ?? likes);
+        const nEl = document.getElementById(`lk-${cid}`); if(nEl) nEl.textContent = after;
+
+        const nowLiked = !b.classList.contains('active');
+        b.classList.toggle('active');
+        b.textContent = '👍 ' + (b.classList.contains('active') ? '已讚' : '按讚/取消');
+
+        const targetUser = b.getAttribute('data-target');
+        if(targetUser) addPoints(targetUser, nowLiked ? 50 : -50);
+      }catch(e){ console.warn('作者中心 like 失敗',e); }
+      finally{ b.disabled=false; }
+    });
+
+    return row;
+  }
+
+  function renderPostCard(p){
+    const pid = String(p._id || p.id);
+    const authorId = (p.author && (p.author._id||p.author.id)) || p.author || ''; // 可能為空（匿名）
+    const authorName = p.author?.username || p.authorName || '匿名';
+    const hasBest = Boolean(p.bestReply===true || p.bestReplyComment);
+
+    const card = document.createElement('div');
+    card.className='card';
+    card.innerHTML=`
+      <div class="post-head">
+        <h3 class="title"><a href="comment.html?id=${encodeURIComponent(pid)}">${escapeHtml(p.title||'(無標題)')}</a></h3>
+        <div class="meta">
+          <span class="user-link" data-filter-author="${authorId}" title="點我只看此作者的貼文">${escapeHtml(authorName)}</span>
+          <span>·</span><span>${timeAgo(p.createdAt)}</span>
+          ${hasBest ? `<span class="badge">Best Reply</span>` : ''}
+        </div>
+      </div>
+      <div class="body">
+        <div class="comments" id="cmts-${pid}">
+          <div class="empty">載入留言中…</div>
+        </div>
+      </div>
+    `;
+
+    // 點作者名：僅顯示該作者的貼文
+    card.querySelector(`[data-filter-author="${authorId}"]`)?.addEventListener('click', ()=>{
+      onlyMine = (authorId === currentUserId());
+      document.getElementById('filterPill').textContent = onlyMine ? '只看我的貼文' : '顯示所有貼文（已鎖定作者）';
+      loadPosts(authorId);
+    });
+
+    // 載入 & 渲染留言
+    (async ()=>{
+      const cont = card.querySelector(`#cmts-${pid}`);
+      const all = await fetchComments(pid);
+
+      // 依「只看別人」與作者ID是否可判斷 來決定要顯示哪些
+      const othersOnly = document.getElementById('toggleOthers').checked;
+      let list = all;
+
+      if (othersOnly && authorId) {
+        list = all.filter(c=>{
+          const cid = (c.author && (c.author._id||c.author.id)) || c.author || c.authorId || c.userId || '';
+          return String(cid||'') !== String(authorId||'');
+        });
+      }
+      // 如果作者是匿名/無 id，無法判斷誰是「別人」，直接顯示全部
+      if (othersOnly && !authorId) {
+        list = all;
+      }
+
+      cont.innerHTML='';
+      if(!list.length){
+        // 若切了「只看別人」但剛好只有自己留言，就直接改成顯示全部，避免「看不到」
+        if(othersOnly && all.length){
+          cont.innerHTML = `<div class="empty">目前沒有別人的留言，已顯示全部留言。</div>`;
+          all.sort((a,b)=> new Date(b.createdAt)-new Date(a.createdAt));
+          all.forEach(c => cont.appendChild(renderCommentRow(c, authorId)));
+        }else{
+          cont.innerHTML = `<div class="empty">目前沒有留言。</div>`;
+        }
+        return;
+      }
+
+      list.sort((a,b)=> new Date(b.createdAt)-new Date(a.createdAt));
+      list.forEach(c => cont.appendChild(renderCommentRow(c, authorId)));
+    })();
+
+    return card;
+  }
+
+  /* ===== 載入 & 篩選 ===== */
+  async function loadPosts(lockAuthorId=null){
+    const list = document.getElementById('postList');
+    const empty = document.getElementById('empty');
+    list.innerHTML=''; empty.style.display='none';
+
+    let posts = await fetchPosts();
+
+    // 關鍵字搜尋（標題 or 內容）
+    const q = document.getElementById('q').value.trim().toLowerCase();
+    if(q){
+      posts = posts.filter(p=> (p.title||'').toLowerCase().includes(q) || (p.content||'').toLowerCase().includes(q));
+    }
+
+    // 只看我的貼文（或點擊作者名鎖定）
+    const me = currentUserId();
+    if(lockAuthorId){
+      posts = posts.filter(p=>{
+        const aid = (p.author && (p.author._id||p.author.id)) || p.author || '';
+        return String(aid) === String(lockAuthorId);
+      });
+    }else if(onlyMine){
+      posts = posts.filter(p=>{
+        const aid = (p.author && (p.author._id||p.author.id)) || p.author || '';
+        return String(aid) === String(me);
+      });
+    }
+
+    if(!posts.length){ empty.style.display=''; return; }
+    posts.sort((a,b)=> new Date(b.createdAt)-new Date(a.createdAt));
+    posts.forEach(p => list.appendChild(renderPostCard(p)));
+  }
+
+  /* ===== 初始化 ===== */
+  document.getElementById('btnRefresh').addEventListener('click', ()=>loadPosts());
+  document.getElementById('q').addEventListener('input', ()=>loadPosts());
+  document.getElementById('toggleOthers').addEventListener('change', ()=>loadPosts());
+  (async function init(){
+    refreshUserBadge();
+    await loadPosts();
+  })();
+</script>
+</body>
+</html>

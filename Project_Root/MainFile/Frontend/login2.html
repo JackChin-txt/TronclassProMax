@@ -1,117 +1,234 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-<meta charset="UTF-8">
-<title>登入系統（學生/老師）</title>
-<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
-<style>
+  <meta charset="UTF-8" />
+  <title>登入系統（Wallet + Name）</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --card: #121826;
+      --primary: #4caf50;
+      --primary-hover: #45a049;
+      --muted: #9aa4b2;
+      --text: #e5e7eb;
+      --shadow: 0 10px 30px rgba(0,0,0,0.35);
+      --radius: 14px;
+      --border: 1px solid #1f2937;
+    }
+    * { box-sizing: border-box; }
     body {
-        font-family: 'Arial';
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        padding-top: 80px;
-        background-color: #f0f2f5;
+      font-family: Arial, "Microsoft JhengHei", sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-top: 64px;
+      background: radial-gradient(1200px 600px at 20% -10%, #12233f 0%, transparent 60%),
+                  radial-gradient(900px 600px at 100% 0%, #1a2638 0%, transparent 60%),
+                  var(--bg);
+      color: var(--text);
+      min-height: 100vh;
     }
-    h1 {
-        color: #333;
+    h1 { margin-bottom: 8px; }
+    #loginBox {
+      width: min(440px, 100%);
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 24px;
+      border: var(--border);
     }
+    label { font-size: 14px; color: #cbd5e1; display: block; margin-top: 10px; }
     input, select, button {
-        margin-top: 10px;
-        padding: 10px;
-        font-size: 16px;
-        width: 250px;
+      margin-top: 8px;
+      margin-bottom: 12px;
+      padding: 12px;
+      font-size: 16px;
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid #273041;
+      border-radius: 10px;
+      background: #0f172a;
+      color: var(--text);
     }
-    #walletAddress {
-        margin-top: 20px;
-        font-weight: bold;
+    input[readonly] { background: #0c1324; color: #cbd5e1; }
+    input::placeholder { color: #64748b; }
+    input:focus, select:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+    button {
+      background-color: var(--primary);
+      color: white; border: none; border-radius: 10px; cursor: pointer;
+      transition: background .15s ease, transform .05s ease;
     }
-</style>
+    button:hover { background-color: var(--primary-hover); }
+    button:active { transform: translateY(1px); }
+    .row { display: flex; gap: 10px; }
+    .row > button { flex: 1; }
+    #status { min-height: 20px; font-size: 14px; color: #cbd5e1; margin-top: 6px; }
+    .hint { font-size: 12px; color: var(--muted); margin-top: -6px; margin-bottom: 10px;}
+    a.link { font-size: 14px; margin-top: 8px; display: inline-block; color: #93c5fd; text-decoration: none;}
+    a.link:hover { text-decoration: underline; }
+  </style>
 </head>
 <body>
-<h1>登入系統（學生/老師）</h1>
 
-<select id="roleSelect" onchange="Role()">
-    <option value="student">學生</option>
-    <option value="teacher">老師</option>
-</select>
+  <h1>登入系統</h1>
+  <div id="loginBox">
+    <!-- 角色選擇（僅顯示，不影響登入條件；以後端回傳為準） -->
+    <label for="roleDisplay">角色（顯示用）</label>
+    <select id="roleDisplay" disabled>
+      <option value="student">學生</option>
+      <option value="mentor">老師</option>
+      <option value="teacher">老師</option>
+      <option value="admin">管理員</option>
+    </select>
+    <div class="hint">登入驗證只比對「名字 + 錢包位址」。成功後顯示後端回傳的角色。</div>
 
-<!-- 學生登入 -->
-<div id="studentLoginSection">
-    <input type="text" id="studentID" placeholder="學號">
-    <br>
-    <input type="password" id="studentPass" placeholder="密碼">
-</div>
+    <!-- 名字（必填） -->
+    <label for="username">名字（必填）</label>
+    <input id="username" type="text" placeholder="請輸入名字（需與註冊相同）" autocomplete="name" />
 
-<!-- 老師登入 -->
-<div id="teacherLoginSection">
-    <input type="text" id="teacherID" placeholder="教職編號">
-    <br>
-    <input type="password" id="teacherPass" placeholder="密碼">
-</div>
+    <label for="walletId">錢包位址</label>
+    <input id="walletId" type="text" placeholder="0x..." readonly />
 
-<button onclick="connectWallet()">🔌 連線MetaMask錢包</button>
-<div id="walletAddress">未連線</div>
+    <div class="row">
+      <button type="button" id="btnConnect">連接 MetaMask</button>
+      <button type="button" id="btnMM">安裝 MetaMask</button>
+    </div>
 
-<button onclick="login()">登入</button>
-<p style="margin-top: 10px;">
-    還沒有帳號？<a href="register2.html">點我註冊</a>
-</p>
+    <button type="button" id="btnLogin">🚪 使用錢包登入</button>
 
-<script>
-let currentWallet = null;
+    <div id="status"></div>
 
-function Role() {
-    const role = document.getElementById("roleSelect").value;
-    document.getElementById("studentLoginSection").style.display = role === "student" ? "block" : "none";
-    document.getElementById("teacherLoginSection").style.display = role === "teacher" ? "block" : "none";
-}
+    <a class="link" href="register2.html">還沒有帳號？前往註冊</a>
+  </div>
 
-async function connectWallet() {
+  <script>
+  const statusEl    = document.getElementById("status");
+  const walletEl    = document.getElementById("walletId");
+  const nameEl      = document.getElementById("username");
+  const roleDisplay = document.getElementById("roleDisplay");
+
+  function setStatus(msg, isError = false) {
+    statusEl.textContent = msg || "";
+    statusEl.style.color = isError ? "#fca5a5" : "#cbd5e1";
+  }
+
+  async function connectMetaMask() {
     if (!window.ethereum) {
-        alert("請安裝 MetaMask！");
-        return;
+      setStatus("找不到 MetaMask，請先安裝或點下方按鈕。", true);
+      return;
     }
-    const provider = new ethers.providers.Web3Provider(window.ethereum);
-    await provider.send("eth_requestAccounts", []);
-    const signer = provider.getSigner();
-    currentWallet = await signer.getAddress();
-    document.getElementById("walletAddress").innerText = `已連線：${currentWallet}`;
-}
+    try {
+      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+      const addr = (accounts && accounts[0]) ? accounts[0] : "";
+      walletEl.value = addr;
+      setStatus(addr ? "已連接 MetaMask。" : "請在 MetaMask 選擇帳號。");
+    } catch (err) {
+      console.error(err);
+      setStatus("連接 MetaMask 失敗，請重試或檢查擴充套件權限。", true);
+    }
+  }
 
-async function login() {
-    if (!currentWallet) {
-        alert("請先連接 MetaMask！");
-        return;
-    }
+  if (window.ethereum) {
+    window.ethereum.on("accountsChanged", accounts => {
+      const addr = (accounts && accounts[0]) ? accounts[0] : "";
+      walletEl.value = addr;
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      setStatus(addr ? "已切換 MetaMask 帳號，請重新登入。" : "MetaMask 未連接任何帳號。");
+    });
+  }
+
+  // 嚴格比對：名字 + 錢包位址
+  async function login() {
+    const walletId    = (walletEl.value || "").trim();
+    const enteredName = (nameEl.value || "").trim();
+
+    if (!walletId) { setStatus("請先連接 MetaMask 以取得錢包位址。", true); return; }
+    if (!enteredName) { setStatus("請先輸入名字（需與註冊相同）。", true); return; }
 
     try {
-        const res = await fetch("http://localhost:3000/api/auth/login", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({ walletId: currentWallet })
+      setStatus("登入中…");
+      // 後端：用 walletId 取回該錢包的帳號資料（serverName/role/token）
+      const res = await fetch("http://localhost:3000/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ walletId, username: enteredName })
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        const msg = data.message || data.error || (`登入失敗（HTTP ${res.status}）`);
+        setStatus("❌ " + msg, true);
+        return;
+      }
+
+      const serverName = (data.username ?? "").trim();
+      const serverRole = data.role || "student";
+
+      // 🔒 嚴格比對：名字必須與 serverName 完全一致（必要時可改成不分大小寫）
+      if (enteredName !== serverName) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        setStatus("❌ 名字與錢包位址不相符，無法登入。", true);
+        return;
+      }
+
+      // 儲存 token
+      if (data.token) localStorage.setItem("token", data.token);
+
+      // 以 token 向 /me 取得最終角色與名稱（以後端為準）
+      let finalRole = "student";
+      let userFromServerName = serverName; // ← 先宣告／預設
+      try {
+        const meRes = await fetch("http://localhost:3000/api/auth/me", {
+          method: "GET",
+          headers: { Authorization: "Bearer " + localStorage.getItem("token") }
         });
-
-        const data = await res.json();
-
-        if (res.ok) {
-            const token = data.token;
-            localStorage.setItem("authToken", token);
-            localStorage.setItem("username", data.username || "匿名");
-            alert("✅ 登入成功！");
-            window.location.href = "discuss2.html";
-        } else {
-            alert("登入失敗：" + data.message);
+        if (meRes.ok) {
+          const me = await meRes.json();
+          // 統一映射角色字串
+          finalRole = (String(me.role || "").trim().toLowerCase() === "teacher") ? "teacher" : "student";
+          userFromServerName = (me.username || me.name || "").trim() || serverName;
         }
-    } catch (err) {
-        console.error(err);
-        alert("連線失敗");
-    }
-}
+      } catch (e) {
+        // /me 失敗不致命，沿用 login 回傳
+      }
 
-Role();
+      // 最終落地 user
+      const user = { username: userFromServerName, walletId, role: finalRole };
+      localStorage.setItem("user", JSON.stringify(user));
+
+      // 顯示 / 導頁
+      roleDisplay.value = finalRole;
+      setStatus("✅ 登入成功，前往討論區…");
+      window.location.href = "post.html";
+    } catch (err) {
+      console.error(err);
+      setStatus("⚠️ 連線失敗，請確認本機 API 是否在 3000 埠運作。", true);
+    }
+  }
+
+  // 綁定事件
+  document.getElementById("btnConnect").addEventListener("click", connectMetaMask);
+  document.getElementById("btnMM").addEventListener("click", () => window.open("https://metamask.io/download", "_blank"));
+  document.getElementById("btnLogin").addEventListener("click", login);
+
+  // 初始提示 + 嘗試自動帶入已授權地址
+  setStatus("請先連接 MetaMask、填好名字，再按登入。");
+  (async () => {
+    if (window.ethereum) {
+      try {
+        const accounts = await window.ethereum.request({ method: "eth_accounts" });
+        if (accounts && accounts[0]) {
+          walletEl.value = accounts[0];
+          setStatus("已偵測到已授權帳號，可直接登入。");
+        }
+      } catch {}
+    }
+  })();
 </script>
+
 </body>
 </html>
