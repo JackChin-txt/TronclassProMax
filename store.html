@@ -1,494 +1,88 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8" />
-  <title>商城</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
-  <style>
-    :root{
-      --bg:#0b0f19;
-      --card:#121826;
-      --subcard:#0f172a;
-      --muted:#9aa4b2;
-      --text:#e5e7eb;
-      --border:#1f2937;
-      --shadow:0 10px 30px rgba(0,0,0,.35);
-      --radius:14px;
-      --primary:#4caf50;
-      --primary-hover:#45a049;
-      --accent:#3b82f6;
-      --danger:#ef4444;
-      --danger-hover:#dc2626;
-    }
-    *{box-sizing:border-box}
-    body{
-      font-family:Arial,"Microsoft JhengHei",sans-serif;
-      margin:0; min-height:100vh; color:var(--text);
-      background:
-        radial-gradient(1200px 600px at 20% -10%, #12233f 0%, transparent 60%),
-        radial-gradient(900px 600px at 100% 0%, #1a2638 0%, transparent 60%),
-        var(--bg);
-    }
-
-    /* Navbar */
-    .nav{
-      position:sticky; top:0; z-index:10;
-      display:flex; align-items:center; gap:12px;
-      padding:16px 20px; background:rgba(9,12,20,.65);
-      border-bottom:1px solid var(--border); backdrop-filter:blur(6px);
-    }
-    .nav h1{font-size:20px; margin:0}
-    .spacer{flex:1}
-    .btn{
-      padding:10px 14px; border:none; border-radius:10px; cursor:pointer;
-      background:var(--subcard); color:var(--text); border:1px solid #273041;
-      transition:background .15s ease, transform .05s ease;
-    }
-    .btn:active{transform:translateY(1px)}
-    .btn.primary{background:var(--primary); border-color:transparent}
-    .btn.primary:hover{background:var(--primary-hover)}
-    .btn.danger{background:var(--danger); border-color:transparent}
-    .btn.danger:hover{background:var(--danger-hover)}
-    .btn.linklike{background:transparent; border-color:transparent; color:#93c5fd}
-    .btn.linklike:hover{text-decoration:underline}
-
-    .wrap{max-width:1100px; margin:24px auto; padding:0 16px}
-
-    /* Cards */
-    .card{
-      background:var(--card);
-      border:1px solid var(--border);
-      border-radius:var(--radius);
-      box-shadow:var(--shadow);
-    }
-
-    /* 控制列 */
-    .controls{ padding:18px 18px 10px; display:grid; grid-template-columns: 1fr 240px 180px auto; gap:12px; }
-    @media (max-width:900px){ .controls{grid-template-columns:1fr 1fr; } }
-    @media (max-width:560px){ .controls{grid-template-columns:1fr; } }
-
-    input, select{
-      width:100%; padding:12px; border-radius:10px;
-      border:1px solid #273041; outline:none; background:#0f172a; color:var(--text);
-    }
-    input::placeholder{ color:#64748b; }
-    input:focus, select:focus{ border-color:var(--accent); box-shadow:0 0 0 3px rgba(59,130,246,.15); }
-
-    .pills{ display:flex; gap:8px; flex-wrap:wrap; padding:0 18px 14px; }
-    .pill{
-      background:#0c1324; color:#cbd5e1; border:1px solid #273041; border-radius:999px;
-      padding:6px 10px; font-size:13px;
-    }
-
-    /* Grid */
-    .grid{ display:grid; grid-template-columns:repeat(4, 1fr); gap:14px; padding:14px 14px 6px; }
-    @media (max-width:1024px){ .grid{ grid-template-columns:repeat(3, 1fr);} }
-    @media (max-width:760px){ .grid{ grid-template-columns:repeat(2, 1fr);} }
-    @media (max-width:520px){ .grid{ grid-template-columns:1fr;} }
-
-    .prod{
-      background:var(--subcard); border:1px solid #273041; border-radius:12px;
-      padding:14px; display:flex; flex-direction:column; gap:8px;
-    }
-    .prod h3{ margin:0; font-size:16px; letter-spacing:.2px; }
-    .desc{ font-size:13px; color:#cbd5e1; min-height:34px; }
-    .price{ font-weight:bold; }
-    .metaRow{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; font-size:12px; color:#93a0b3; }
-    .buyRow{ display:flex; gap:10px; align-items:center; }
-    .msg{ font-size:12px; min-height:16px; }
-    .ok{ color:#2ecc71 } .err{ color:#fda4af }
-
-    /* Pager */
-    .pager{ display:flex; justify-content:space-between; align-items:center; padding:12px 14px 16px; gap:12px; flex-wrap:wrap; }
-    .pagebox{ padding:10px 12px; background:#0c1324; border:1px solid #273041; border-radius:10px; }
-    .pagebox a{ color:#cde4ff; text-decoration:none; margin:0 6px; }
-    .muted{ color:var(--muted); font-size:13px; }
-
-    /* Toast */
-    #toast{
-      position:fixed; right:16px; bottom:16px; background:#0e3345; color:#e9f7ff;
-      padding:10px 12px; border-radius:8px; display:none; box-shadow:0 10px 24px rgba(0,0,0,.2);
-    }
-  </style>
+<meta charset="UTF-8"/>
+<title>商店 / 點數兌換</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<style>
+  :root{--bg:#0b0f19;--card:#121826;--card-2:#0f172a;--muted:#9aa4b2;--text:#e5e7eb;--border:#1f2937;--shadow:0 10px 30px rgba(0,0,0,.35);--radius:14px;--primary:#4caf50;--primary-hover:#45a049;--accent:#3b82f6}
+  *{box-sizing:border-box}
+  body{font-family:Arial,"Microsoft JhengHei",sans-serif;margin:0;min-height:100vh;color:var(--text);
+       background:radial-gradient(1200px 600px at 20% -10%,#12233f 0%,transparent 60%),radial-gradient(900px 600px at 100% 0%,#1a2638 0%,transparent 60%),var(--bg)}
+  .nav{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:12px;padding:16px 20px;background:rgba(9,12,20,.65);backdrop-filter:blur(6px);border-bottom:1px solid var(--border)}
+  .nav h1{font-size:20px;margin:0}.nav .spacer{flex:1}
+  .btn{padding:10px 14px;border:1px solid #273041;border-radius:10px;background:var(--card-2);color:var(--text);cursor:pointer;transition:background .15s ease,transform .05s ease}
+  .btn:active{transform:translateY(1px)} .btn.primary{background:var(--primary);border-color:transparent}
+  .btn.primary:hover{background:var(--primary-hover)} .btn.link{background:transparent;border-color:transparent;color:#93c5fd}
+  .btn.link:hover{text-decoration:underline}
+  .wrap{max-width:980px;margin:24px auto;padding:0 16px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow)}
+  .balance{padding:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
+  .item{padding:16px}
+  .item h3{margin:0 0 6px;font-size:18px}
+  .muted{color:var(--muted);font-size:14px}
+  .price{font-weight:700}
+</style>
 </head>
 <body>
-
-  <!-- NAV -->
   <div class="nav">
-    <h1>商城</h1>
+    <h1>商店 / 點數兌換</h1>
     <div class="spacer"></div>
-    <button class="btn linklike" onclick="goDiscuss()">返回討論區</button>
-    <button id="btnConnect" class="btn primary">🔌 連線 MetaMask</button>
+    <button class="btn link" onclick="location.href='post.html'">← 返回文章清單</button>
+    <button class="btn" onclick="logout()">登出</button>
   </div>
 
   <div class="wrap">
-    <!-- 控制列 -->
-    <div class="card">
-      <div class="controls">
-        <input id="q" placeholder="搜尋商品名稱…" />
-        <select id="sorter">
-          <option value="none">排序：預設</option>
-          <option value="price-asc">價格 低→高</option>
-          <option value="price-desc">價格 高→低</option>
-          <option value="name-asc">名稱 A→Z</option>
-          <option value="name-desc">名稱 Z→A</option>
-        </select>
-        <select id="pageSize">
-          <option value="8">每頁 8 筆</option>
-          <option value="12" selected>每頁 12 筆</option>
-          <option value="24">每頁 24 筆</option>
-        </select>
-        <button class="btn" id="refreshBtn">重新載入</button>
-      </div>
-      <div class="pills">
-        <span id="addrPill" class="pill">未連線</span>
-        <span id="balPill" class="pill">POINT：--</span>
-        <span id="statusPill" class="pill">狀態：就緒</span>
-      </div>
+    <div class="card balance">
+      <div>目前點數餘額：<b id="bal">--</b></div>
+      <button class="btn" onclick="refreshBalance()">刷新</button>
     </div>
 
-    <!-- 商品 -->
-    <div class="card" style="margin-top:16px;">
-      <div id="grid" class="grid"></div>
-      <div class="pager">
-        <div>
-          <button class="btn" id="prevBtn">上一頁</button>
-          <span class="muted" id="prevHint">（在第一頁時停用）</span>
-        </div>
-        <div id="pageList" class="pagebox">頁碼</div>
-        <div>
-          <button class="btn" id="nextBtn">下一頁</button>
-          <span class="muted" id="nextHint">（在最後一頁時停用）</span>
-        </div>
-      </div>
-    </div>
-
-    <p class="muted" style="margin:12px 6px;">
-      提醒：商品清單由你的後端 API 提供；購買流程為以 ERC-20 代幣向店家錢包轉帳。可依需求改為下單 API。
-    </p>
+    <div class="grid" id="storeGrid"></div>
   </div>
 
-  <div id="toast"></div>
-
 <script>
-/** ========= 你可以在這裡改設定 ========= */
-// 後端商品 API（GET）：預期返回陣列或帶分頁物件
-// 支援參數：?q=&sort=&page=&pageSize=（若後端不支援，會改在前端處理）
-const ENDPOINT_PRODUCTS = "http://localhost:3000/api/products";
+  const LEDGER_KEY='pointsLedger';
+  function getLedger(){try{return JSON.parse(localStorage.getItem(LEDGER_KEY)||'{}')}catch{return{}}}
+  function setLedger(o){localStorage.setItem(LEDGER_KEY,JSON.stringify(o||{}))}
+  function getUser(){try{return JSON.parse(localStorage.getItem('user')||'{}')}catch{return{}}}
+  function currentUserId(){const u=getUser();return String(u._id||u.id||'')}
+  function getBalance(){const l=getLedger();return Number(l[currentUserId()]||0)}
+  function addPoints(delta){const l=getLedger();const id=currentUserId();l[id]=(Number(l[id]||0)+Number(delta||0))|0;setLedger(l)}
 
-// 你的 POINT (ERC-20) 合約位址與商家收款位址
-const TOKEN_ADDRESS     = "0xYourPointTokenAddressHere";
-const MERCHANT_ADDRESS  = "0xMerchantWalletAddressHere";
-/** ===================================== */
+  function logout(){localStorage.removeItem('token');localStorage.removeItem('user');location.href='login2.html'}
 
-const ERC20_ABI = [
-  "function symbol() view returns (string)",
-  "function decimals() view returns (uint8)",
-  "function balanceOf(address) view returns (uint256)",
-  "function transfer(address to, uint256 amount) returns (bool)"
-];
+  async function refreshBalance(){document.getElementById('bal').textContent=getBalance()}
 
-let provider, signer, token, userAddress = "", tokenSymbol = "POINT", tokenDecimals = 18;
+  // 假資料；正式改成打你後端的 /api/rewards 清單
+  const items=[
+    { id:'coupon-50', name:'作業加分券 (50)', cost:50, desc:'期末成績 +1（示例）' },
+    { id:'badge-30',  name:'榮譽徽章 (30)',   cost:30, desc:'個人頁徽章（示例）' },
+    { id:'notify-10', name:'老師提醒券 (10)', cost:10, desc:'請老師寄信提醒（示例）' },
+  ];
 
-const ui = {
-  grid: document.getElementById("grid"),
-  q: document.getElementById("q"),
-  sorter: document.getElementById("sorter"),
-  pageSize: document.getElementById("pageSize"),
-  addrPill: document.getElementById("addrPill"),
-  balPill: document.getElementById("balPill"),
-  statusPill: document.getElementById("statusPill"),
-  pageList: document.getElementById("pageList"),
-  prevBtn: document.getElementById("prevBtn"),
-  nextBtn: document.getElementById("nextBtn"),
-  prevHint: document.getElementById("prevHint"),
-  nextHint: document.getElementById("nextHint"),
-};
-
-const state = {
-  // 後端回傳的原始資料（若分頁回傳，會取 data/items 字段）
-  rawProducts: [],
-  // 目前視圖資料（前端搜尋/排序後）
-  viewProducts: [],
-  // 客戶端分頁
-  page: 1,
-  totalPages: 1,
-};
-
-function goDiscuss(){ window.location.href = "discuss2.html"; }
-
-/* =========== API =========== */
-async function fetchProducts(){
-  setStatus("載入商品中…");
-  const ps = Number(ui.pageSize.value) || 12;
-  const page = state.page;
-
-  // 若你的後端支援 q/sort/page/pageSize，就直接帶參數；
-  // 若不支援，也沒關係，後面會在前端做搜尋/排序/分頁。
-  const url = new URL(ENDPOINT_PRODUCTS);
-  if (ui.q.value.trim()) url.searchParams.set("q", ui.q.value.trim());
-  if (ui.sorter.value !== "none") url.searchParams.set("sort", ui.sorter.value);
-  url.searchParams.set("page", page);
-  url.searchParams.set("pageSize", ps);
-
-  try{
-    const res = await fetch(url.toString(), { headers: { "Accept":"application/json" } });
-    const data = await res.json().catch(()=> ({}));
-
-    if(!res.ok){ throw new Error(data.message || data.error || `HTTP ${res.status}`); }
-
-    // 支援兩種格式：
-    // 1) 直接回陣列
-    // 2) { items:[], page, totalPages } 或 { data:[], total, page, pageSize }
-    let items = Array.isArray(data) ? data
-              : Array.isArray(data.items) ? data.items
-              : Array.isArray(data.data)  ? data.data
-              : [];
-
-    // 正規化欄位（至少要有 id / name / price）
-    state.rawProducts = items.map((p, i) => ({
-      id:  p.id ?? p._id ?? i + 1,
-      name: String(p.name ?? p.title ?? `商品 ${i+1}`),
-      desc: String(p.description ?? p.desc ?? ""),
-      // 允許 price, pricePoint, price_points ...（整數 POINT 單位）
-      price: Number(p.price ?? p.pricePoint ?? p.price_points ?? 0),
-      // 若後端提供小數，亦可改為 parseUnits
-    }));
-
-    // 若後端也提供 totalPages，就直接用；否則用前端分頁
-    if (Number.isFinite(data.totalPages)) {
-      state.totalPages = Math.max(1, Number(data.totalPages));
-    } else if (Number.isFinite(data.total) && Number.isFinite(data.pageSize)) {
-      state.totalPages = Math.max(1, Math.ceil(Number(data.total)/Number(data.pageSize)));
-    } else {
-      // 前端自行分頁（基於全部資料）
-      applySearchSort(); // 內含 render + 計算 totalPages
-      return;
-    }
-
-    // 若由後端分頁，視圖就是 rawProducts
-    state.viewProducts = [...state.rawProducts];
-    renderGrid();
-    setStatus("載入完成");
-  }catch(err){
-    console.error(err);
-    setStatus("商品 API 載入失敗，改用示範資料。");
-    // 後援：本地示範資料
-    state.rawProducts = makeDemoProducts();
-    applySearchSort();
-  }
-}
-
-/* =========== 前端搜尋 / 排序 / 分頁 =========== */
-function applySearchSort(){
-  const q = (ui.q.value || "").trim().toLowerCase();
-  const mode = ui.sorter.value;
-
-  let arr = [...state.rawProducts];
-  if(q){ arr = arr.filter(p => p.name.toLowerCase().includes(q)); }
-
-  switch(mode){
-    case "price-asc":  arr.sort((a,b)=>a.price-b.price); break;
-    case "price-desc": arr.sort((a,b)=>b.price-a.price); break;
-    case "name-asc":   arr.sort((a,b)=> a.name.localeCompare(b.name,"zh-Hant")); break;
-    case "name-desc":  arr.sort((a,b)=> b.name.localeCompare(a.name,"zh-Hant")); break;
-  }
-
-  state.viewProducts = arr;
-  calcTotalPages();
-  state.page = Math.min(state.page, state.totalPages);
-  renderGrid();
-}
-
-function calcTotalPages(){
-  const ps = Number(ui.pageSize.value) || 12;
-  state.totalPages = Math.max(1, Math.ceil(state.viewProducts.length / ps));
-}
-
-function pageSlice(){
-  const ps = Number(ui.pageSize.value) || 12;
-  const start = (state.page - 1) * ps;
-  return state.viewProducts.slice(start, start + ps);
-}
-
-/* =========== 畫面渲染 =========== */
-function renderGrid(){
-  ui.grid.innerHTML = "";
-  const slice = pageSlice();
-
-  if(slice.length === 0){
-    ui.grid.innerHTML = `<div class="muted" style="grid-column:1/-1; text-align:center; padding:22px;">找不到符合條件的商品</div>`;
-  }
-
-  slice.forEach(p=>{
-    const card = document.createElement("div");
-    card.className = "prod";
-    card.innerHTML = `
-      <h3>${escapeHtml(p.name)}</h3>
-      <div class="desc">${escapeHtml(p.desc || "—")}</div>
-      <div class="metaRow">
-        <span class="price">價格：${Number(p.price).toLocaleString()} ${escapeHtml(tokenSymbol)}</span>
-        <span>•</span>
-        <span>#${escapeHtml(String(p.id))}</span>
-      </div>
-      <div class="buyRow">
-        <button class="btn primary" data-id="${p.id}">購買</button>
-        <div class="msg" id="msg-${p.id}"></div>
-      </div>
-    `;
-    ui.grid.appendChild(card);
-  });
-
-  // 綁定購買
-  Array.from(ui.grid.querySelectorAll("button[data-id]")).forEach(btn=>{
-    btn.addEventListener("click", async (e)=>{
-      const id = Number(e.currentTarget.dataset.id);
-      const product = state.rawProducts.find(x=>Number(x.id)===id);
-      if(!userAddress){ return toast("請先連線 MetaMask"); }
-      await buyProduct(product);
+  function renderStore(){
+    const grid=document.getElementById('storeGrid'); grid.innerHTML='';
+    items.forEach(it=>{
+      const div=document.createElement('div'); div.className='card item';
+      div.innerHTML=`
+        <h3>${it.name}</h3>
+        <div class="muted">${it.desc||''}</div>
+        <div style="margin-top:8px">價格：<span class="price">${it.cost}</span> 分</div>
+        <div style="margin-top:12px"><button class="btn primary">兌換</button></div>
+      `;
+      div.querySelector('button').addEventListener('click',()=>{
+        if(getBalance()<it.cost){alert('點數不足');return}
+        addPoints(-it.cost);
+        refreshBalance();
+        alert('兌換成功！（前端扣點）');
+      });
+      grid.appendChild(div);
     });
-  });
-
-  updatePager();
-}
-
-function updatePager(){
-  ui.prevBtn.disabled = (state.page<=1);
-  ui.nextBtn.disabled = (state.page>=state.totalPages);
-  ui.prevHint.style.visibility = state.page<=1 ? "visible" : "hidden";
-  ui.nextHint.style.visibility = state.page>=state.totalPages ? "visible" : "hidden";
-
-  const links = [];
-  for(let i=1;i<=state.totalPages;i++){
-    links.push(`<a href="#" data-p="${i}">${i===state.page? "<b>["+i+"]</b>" : i}</a>`);
   }
-  ui.pageList.innerHTML = links.join(" ");
-  Array.from(ui.pageList.querySelectorAll("a")).forEach(a=>{
-    a.addEventListener("click",(e)=>{
-      e.preventDefault();
-      state.page = Number(e.currentTarget.dataset.p);
-      renderGrid();
-      window.scrollTo({ top:0, behavior:"smooth" });
-    });
-  });
-}
 
-/* =========== 購買（ERC-20 轉帳） =========== */
-async function buyProduct(product){
-  const msgEl = document.getElementById("msg-"+product.id);
-  msgEl.className = "msg"; msgEl.textContent = "交易送出中…";
-  try{
-    // 依 tokenDecimals 轉為最小單位
-    const amount = ethers.utils.parseUnits(String(product.price), tokenDecimals);
-    const tx = await token.transfer(MERCHANT_ADDRESS, amount);
-    msgEl.textContent = "鏈上確認中：" + tx.hash.slice(0,12) + "…";
-    await tx.wait();
-    msgEl.classList.add("ok");
-    msgEl.textContent = "✅ 購買成功！";
-    await refreshBalance();
-
-    // 可選：本地紀錄
-    const orders = JSON.parse(localStorage.getItem("orders") || "[]");
-    orders.push({ t:Date.now(), id:product.id, name:product.name, price:product.price, buyer:userAddress, tx:tx.hash });
-    localStorage.setItem("orders", JSON.stringify(orders));
-  }catch(err){
-    console.error(err);
-    msgEl.classList.add("err");
-    msgEl.textContent = "❌ 交易失敗或取消";
-  }
-}
-
-/* =========== MetaMask =========== */
-async function connectMM(){
-  if(!window.ethereum){ return toast("找不到 MetaMask，請先安裝"); }
-  try{
-    provider = new ethers.providers.Web3Provider(window.ethereum);
-    await provider.send("eth_requestAccounts", []);
-    signer = provider.getSigner();
-    userAddress = await signer.getAddress();
-
-    ui.addrPill.textContent = userAddress.slice(0,6) + "…" + userAddress.slice(-4);
-
-    token = new ethers.Contract(TOKEN_ADDRESS, ERC20_ABI, signer);
-    try{
-      tokenSymbol = await token.symbol();
-      tokenDecimals = await token.decimals();
-    }catch(_){}
-
-    await refreshBalance();
-    toast("已連線 MetaMask");
-  }catch(e){
-    console.error(e);
-    toast("連線失敗或被拒絕");
-  }
-}
-
-async function refreshBalance(){
-  if(!token || !userAddress) return;
-  try{
-    const bal = await token.balanceOf(userAddress);
-    const human = ethers.utils.formatUnits(bal, tokenDecimals);
-    ui.balPill.textContent = `${tokenSymbol}：${(+human).toLocaleString()}`;
-  }catch(e){
-    console.error(e);
-    ui.balPill.textContent = `${tokenSymbol}：--`;
-  }
-}
-
-if (window.ethereum){
-  window.ethereum.on("accountsChanged",(accounts)=>{
-    if(accounts && accounts.length){
-      userAddress = accounts[0];
-      ui.addrPill.textContent = userAddress.slice(0,6)+"…"+userAddress.slice(-4);
-      refreshBalance();
-    }else{
-      userAddress = "";
-      ui.addrPill.textContent = "未連線";
-      ui.balPill.textContent = `${tokenSymbol}：--`;
-    }
-  });
-}
-
-/* =========== 小工具 =========== */
-function toast(text){
-  const el = document.getElementById("toast");
-  el.textContent = text;
-  el.style.display = "block";
-  setTimeout(()=> el.style.display="none", 2200);
-}
-function escapeHtml(str){
-  return String(str)
-    .replace(/&/g,'&amp;')
-    .replace(/</g,'&lt;')
-    .replace(/>/g,'&gt;')
-    .replace(/"/g,'&quot;')
-    .replace(/'/g,'&#039;');
-}
-function setStatus(msg){ ui.statusPill.textContent = "狀態：" + (msg||""); }
-
-/* =========== Demo 後援資料（API 失敗時） =========== */
-function makeDemoProducts(){
-  const arr = [];
-  for(let i=1;i<=36;i++){
-    const price = (Math.floor(Math.random()*90)+10);
-    arr.push({ id:i, name:"商品 "+i, desc:"示範商品描述", price });
-  }
-  return arr;
-}
-
-/* =========== 綁定事件 / 初始化 =========== */
-document.getElementById("btnConnect").addEventListener("click", connectMM);
-document.getElementById("refreshBtn").addEventListener("click", ()=>{ state.page=1; fetchProducts(); });
-ui.q.addEventListener("input", ()=>{ state.page=1; applySearchSort(); });
-ui.sorter.addEventListener("change", ()=>{ state.page=1; applySearchSort(); });
-ui.pageSize.addEventListener("change", ()=>{ state.page=1; applySearchSort(); });
-ui.prevBtn.addEventListener("click", ()=>{ if(state.page>1){ state.page--; renderGrid(); }});
-ui.nextBtn.addEventListener("click", ()=>{ if(state.page<state.totalPages){ state.page++; renderGrid(); }});
-
-// 初次載入
-setStatus("就緒");
-fetchProducts();
+  (async function init(){renderStore();await refreshBalance()})();
 </script>
 </body>
 </html>
