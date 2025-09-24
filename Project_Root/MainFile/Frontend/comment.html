@@ -2,303 +2,336 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8"/>
-<title>文章內容與留言</title>
+<title>文章與留言</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <style>
   :root{
-    --bg:#0b0f19; --card:#121826; --card-2:#0f172a;
-    --muted:#9aa4b2; --text:#e5e7eb; --border:#1f2937;
-    --shadow:0 10px 30px rgba(0,0,0,.35); --radius:14px;
-    --primary:#4caf50; --primary-hover:#45a049;
-    --danger:#ef4444; --danger-hover:#dc2626; --accent:#3b82f6;
-    --teacher:#0e1b35;
+    --bg:#0b0f19;--card:#121826;--card-2:#0f172a;--muted:#9aa4b2;--text:#e5e7eb;--border:#1f2937;
+    --shadow:0 10px 30px rgba(0,0,0,.35);--radius:14px;--primary:#4caf50;--primary-hover:#45a049;
+    --accent:#2563eb;--accentText:#dbeafe;
   }
   *{box-sizing:border-box}
   body{
-    font-family:Arial,"Microsoft JhengHei",sans-serif; margin:0; min-height:100vh; color:var(--text);
-    background: radial-gradient(1200px 600px at 20% -10%, #12233f 0%, transparent 60%),
-                radial-gradient(900px 600px at 100% 0%, #1a2638 0%, transparent 60%), var(--bg);
+    font-family:Arial,"Microsoft JhengHei",sans-serif;margin:0;min-height:100vh;color:var(--text);
+    background:radial-gradient(1200px 600px at 20% -10%,#12233f 0%,transparent 60%),
+               radial-gradient(900px 600px at 100% 0%,#1a2638 0%,transparent 60%),var(--bg)
   }
   .nav{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:12px;padding:16px 20px;
        background:rgba(9,12,20,.65);backdrop-filter:blur(6px);border-bottom:1px solid var(--border)}
-  .nav h1{font-size:20px;margin:0}
-  .nav .spacer{flex:1}
-  .btn{padding:10px 14px;border:none;border-radius:10px;background:var(--card-2);color:var(--text);
-       cursor:pointer;border:1px solid #273041;transition:background .15s ease,transform .05s ease}
-  .btn:active{transform:translateY(1px)}
-  .btn.primary{background:var(--primary);border-color:transparent}
-  .btn.primary:hover{background:var(--primary-hover)}
-  .btn.danger{background:var(--danger);border-color:transparent}
-  .btn.danger:hover{background:var(--danger-hover)}
-  .btn.linklike{background:transparent;border-color:transparent;color:#93c5fd}
-  .btn.linklike:hover{text-decoration:underline}
-  .wrap{max-width:980px;margin:24px auto;padding:0 16px}
+  .nav h1{font-size:20px;margin:0}.nav .spacer{flex:1}
+  .badge-user{font-size:13px;color:#cbd5e1;background:rgba(148,163,184,.15);border:1px solid #273041;border-radius:999px;padding:6px 10px}
+  .btn{padding:8px 14px;border-radius:8px;background:var(--card-2);color:var(--text);border:1px solid #273041;cursor:pointer;transition:.15s}
+  .btn:hover{background:#1a2335}
+  .btn.primary{background:var(--primary);border:none}.btn.primary:hover{background:var(--primary-hover)}
+  .wrap{max-width:860px;margin:24px auto;padding:0 16px}
   .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow)}
-  .post{padding:20px}
-  .title{font-size:22px;margin:0 0 8px}
-  .meta{font-size:13px;color:#cbd5e1;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  .content{margin-top:10px;line-height:1.7;color:#e2e8f0;white-space:pre-wrap}
-  .hr{height:1px;background:#243044;margin:16px 0}
-  .comment-form{padding:16px;border-top:1px dashed #243044;display:flex;flex-direction:column;gap:10px}
-  textarea,input[type="text"]{
-    width:100%; padding:12px; border:1px solid #273041; border-radius:10px; outline:none;
-    background:#0f172a; color:var(--text);
-  }
-  textarea:focus,input[type="text"]:focus{border-color:var(--accent); box-shadow:0 0 0 3px rgba(59,130,246,.15)}
+  .post{padding:20px;border-bottom:1px solid var(--border)}
+  .post h2{margin:0 0 8px;font-size:22px}
+  .meta{font-size:13px;color:#cbd5e1}
+  .content{margin-top:10px;white-space:pre-wrap}
+  .newc{padding:16px;border-top:1px solid var(--border);display:grid;gap:10px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  textarea{width:100%;background:#0f172a;color:var(--text);border:1px solid #273041;border-radius:8px;padding:10px}
+  input[type="datetime-local"]{background:#0f172a;color:#e5e7eb;border:1px solid #273041;border-radius:8px;padding:8px}
   .comments{padding:16px}
-  .cmt{background:#0c1324;border:1px solid #273041;padding:12px;border-radius:12px}
-  .cmt + .cmt{margin-top:12px}
-  .cmeta{font-size:12px;color:#93a0b3;display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px}
-  .badge{display:inline-block;padding:2px 8px;font-size:12px;border-radius:999px;background:#0c1324;border:1px solid #273041;color:#cbd5e1}
-  .badge.teacher{background:linear-gradient(180deg,var(--teacher),#0c1324);border-color:#1f3c78;color:#cfe1ff}
+  .cmt{background:#0f172a;border:1px solid #273041;border-radius:10px;padding:12px;margin-bottom:12px}
+  .cmt.pending{opacity:.9;border-style:dashed}
+  .cmt.best{border-color:var(--accent);box-shadow:0 0 0 1px rgba(37,99,235,.35) inset}
+  .top{font-size:13px;color:#cbd5e1;margin-bottom:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .name{font-weight:600}
+  .badge{padding:2px 6px;border-radius:8px;background:var(--accent);color:var(--accentText);font-size:12px}
+  .badge.gray{background:#374151;color:#e5e7eb}
+  .txt{white-space:pre-wrap}
+  .actions{margin-top:8px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .like-btn.active{background:#1e293b}
   .empty{text-align:center;padding:28px;color:var(--muted)}
+  .warn{color:#fca5a5;font-size:13px}
 </style>
 </head>
 <body>
   <div class="nav">
-    <h1>文章內容</h1>
-    <button class="btn linklike" onclick="location.href='post.html'">← 返回清單</button>
+    <h1>文章留言</h1>
     <div class="spacer"></div>
-    <span id="userBadge" class="btn linklike" style="cursor:default"></span>
-    <button class="btn" onclick="logout()">登出</button>
+    <span id="userBadge" class="badge-user">未登入</span>
+    <button class="btn" onclick="location.href='post.html'">← 回清單</button>
+    <button class="btn" id="btnLogin" onclick="location.href='login2.html'">登入</button>
+    <button class="btn" id="btnLogout" style="display:none" onclick="logout()">登出</button>
   </div>
 
   <div class="wrap">
     <div class="card">
-      <div id="post" class="post">
-        <h2 class="title" id="p-title">(讀取中…)</h2>
-        <div class="meta" id="p-meta"></div>
-        <div class="content" id="p-content"></div>
+      <div class="post">
+        <h2 id="pTitle">(載入中…)</h2>
+        <div class="meta" id="pMeta"></div>
+        <div class="content" id="pContent"></div>
       </div>
 
-      <div class="comment-form">
-        <label for="cmtContent">新增留言</label>
-        <textarea id="cmtContent" rows="4" placeholder="輸入留言內容…"></textarea>
-        <div>
-          <button class="btn primary" onclick="submitComment()">送出留言</button>
+      <div class="newc">
+        <textarea id="cContent" rows="3" placeholder="寫點什麼吧…（只有留言，沒有回覆）"></textarea>
+        <div class="row">
+          <label class="meta">截止時間：</label>
+          <input id="cutoffInput" type="datetime-local"/>
         </div>
-        <div id="tip" class="empty" style="display:none;"></div>
+        <div class="row">
+          <button class="btn primary" id="btnAdd">送出留言</button>
+          <span id="cStatus" class="meta"></span>
+        </div>
       </div>
 
-      <div class="hr"></div>
-
-      <div class="comments" id="comments"></div>
-      <div id="empty" class="empty" style="display:none;">尚無留言，搶先留言吧！</div>
+      <div id="cList" class="comments"></div>
+      <div id="cEmpty" class="empty" style="display:none;">目前沒有留言。</div>
     </div>
   </div>
 
 <script>
-  // === API 根路徑：同網域可留空；否則指向後端 ===
-  const API_BASE = (location.origin.includes('localhost:3000') || location.origin.startsWith('http://localhost:3000'))
-    ? '' : 'http://localhost:3000';
-
-  // ========== 基本資料 ==========
-  function qs(k){ return new URL(location.href).searchParams.get(k); }
+  const API = 'http://localhost:3000/api';
+  const qs = (k)=> new URLSearchParams(location.search).get(k);
   const postId = qs('id');
 
-  function displayRole(r){
-    const s = String(r||'').trim().toLowerCase();
-    if(['mentor','teacher','老師','教師'].includes(s)) return '老師';
-    if(['student','學生'].includes(s)) return '學生';
-    return '訪客';
+  /* ===== 使用者/工具 ===== */
+  function getCurrentUser(){ try{ return JSON.parse(localStorage.getItem('user') || '{}'); }catch{ return {}; } }
+  function refreshUserBadge(){
+    const u=getCurrentUser(); const has=!!(localStorage.getItem('token')||localStorage.getItem('authToken'));
+    const name=u.username||u.name||(has?'使用者':'未登入');
+    document.getElementById('userBadge').textContent=has?`👤 ${name}`:'未登入';
+    document.getElementById('btnLogin').style.display=has?'none':''; document.getElementById('btnLogout').style.display=has?'':'none';
   }
-  const user = (()=>{ try{
-    const u = JSON.parse(localStorage.getItem('user')||'{}');
-    return { id: u._id || u.id, name: u.username||u.name||'使用者', role: u.role||'學生' };
-  }catch{ return { name:'使用者', role:'學生' } }})();
-  document.getElementById('userBadge').textContent = `${user.name}（${displayRole(user.role)}）`;
+  function logout(){ localStorage.removeItem('token'); localStorage.removeItem('authToken'); localStorage.removeItem('user'); refreshUserBadge(); location.href='login2.html'; }
+  function authHeaders(){ const t=localStorage.getItem('token')||localStorage.getItem('authToken'); return t?{'Content-Type':'application/json','Authorization':'Bearer '+t}:{'Content-Type':'application/json'}; }
+  function currentUserId(){ try{ const u=JSON.parse(localStorage.getItem('user')||'{}'); return String(u._id||u.id||''); }catch{ return ''; } }
+  function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));}
+  function timeAgo(iso){if(!iso)return'';const d=(Date.now()-new Date(iso))/1000;if(d<60)return`${Math.floor(d)} 秒前`;if(d<3600)return`${Math.floor(d/60)} 分鐘前`;if(d<86400)return`${Math.floor(d/3600)} 小時前`;return`${Math.floor(d/86400)} 天前`;}
+  function fmt(dt){ try{ return new Date(dt).toLocaleString(); }catch{ return ''; } }
 
-  function logout(){
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    location.href='login2.html';
-  }
-  function timeAgo(iso){
-    if(!iso) return '剛剛';
-    const diff=(Date.now()-new Date(iso).getTime())/1000;
-    if(diff<60) return `${Math.floor(diff)} 秒前`;
-    if(diff<3600) return `${Math.floor(diff/60)} 分鐘前`;
-    if(diff<86400) return `${Math.floor(diff/3600)} 小時前`;
-    return `${Math.floor(diff/86400)} 天前`;
-  }
-  function escapeHtml(s){
-    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-      .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
-  }
-  function authHeader(){
-    const t = localStorage.getItem('token');
-    return t ? { 'Authorization': 'Bearer ' + t } : {};
-  }
-  async function safeText(res){
-    try{
-      const txt = await res.text();
-      try{
-        const j = JSON.parse(txt);
-        return (j.message || j.error || txt || '').toString().slice(0,200);
-      }catch{
-        return (txt || '').toString().slice(0,200);
-      }
-    }catch{ return ''; }
+  /* ===== Points Ledger（前端錢包）===== */
+  const LEDGER_KEY='pointsLedger'; // { [userId]: points }
+  function getLedger(){ try{ return JSON.parse(localStorage.getItem(LEDGER_KEY)||'{}'); }catch{ return {}; } }
+  function setLedger(obj){ localStorage.setItem(LEDGER_KEY, JSON.stringify(obj||{})); }
+  function addPoints(uid, delta){
+    const l=getLedger();
+    const next = Math.max(0, Number(l[uid]||0) + Number(delta||0));
+    l[uid] = next;
+    setLedger(l);
   }
 
-  // ========== 載入文章 ==========
+  /* ===== 本機暫存留言（refresh 後也看得到）===== */
+  const PENDING_KEY = pid => `pendingComments:${pid}`;
+  function loadPending(){ try{ return JSON.parse(localStorage.getItem(PENDING_KEY(postId)) || '[]'); }catch{ return []; } }
+  function savePending(list){ localStorage.setItem(PENDING_KEY(postId), JSON.stringify(list.slice(0,50))); }
+  function addPending(c){ const list = loadPending(); list.unshift(c); savePending(list); }
+  function removePendingIfSynced(server){
+    const list=loadPending(); if(!list.length) return;
+    const after=list.filter(pc=>{
+      const matched = server.some(sc => (pc.content && sc.content===pc.content) || (pc.tempId && String(sc._id||sc.id)===String(pc.tempId)));
+      return !matched;
+    });
+    if(after.length!==list.length) savePending(after);
+  }
+
+  /* ===== 文章 & 權限 ===== */
+  let POST_AUTHOR_ID = null;
+  function isPostAuthor(){ return POST_AUTHOR_ID && currentUserId() && POST_AUTHOR_ID === currentUserId(); }
   async function loadPost(){
-    const titleEl = document.getElementById('p-title');
-    const metaEl  = document.getElementById('p-meta');
-    const contEl  = document.getElementById('p-content');
-
-    if(!postId){ titleEl.textContent='找不到文章 ID'; return; }
-    try{
-      // GET /api/posts/:id
-      const res = await fetch(`${API_BASE}/api/posts/${encodeURIComponent(postId)}`);
-      if(!res.ok) throw new Error('無法取得文章');
-      const p = await res.json();
-
-      titleEl.textContent = p.title || '(無標題)';
-      metaEl.textContent =
-        `${escapeHtml(p.authorName || p.author || '匿名')} · ${timeAgo(p.createdAt || p.updatedAt)}`;
-
-      // 純文字顯示（安全），避免雙重轉義
-      contEl.textContent = p.content || '';
-
-      // 若後端有回傳作者 ID，可用於「顯示設最佳」的前端判斷
-      if (p.authorId) window.__postAuthorId = String(p.authorId);
-    }catch(e){
-      titleEl.textContent = '讀取失敗';
-      contEl.textContent = e.message || '—';
-    }
+    const res = await fetch(`${API}/posts/${encodeURIComponent(postId)}`);
+    if(!res.ok) throw new Error('讀文章失敗');
+    const p = await res.json();
+    POST_AUTHOR_ID = String(p.author?._id || p.author || '');
+    document.getElementById('pTitle').textContent = p.title || '(無標題)';
+    document.getElementById('pMeta').textContent = `${p.author?.username||p.authorName||'匿名'} · ${timeAgo(p.createdAt)}`;
+    document.getElementById('pContent').textContent = p.content||'';
   }
 
-  // ========== 載入留言（依後端實際欄位命名修正） ==========
+  /* ===== 讀留言（/comments/post/:postId → 404 fallback ?postId=...）===== */
+  async function fetchComments(){
+    try{
+      let res = await fetch(`${API}/comments/post/${encodeURIComponent(postId)}`, { headers: authHeaders() });
+      if(res.ok){ const d = await res.json(); return Array.isArray(d.comments)?d.comments:d; }
+      if(res.status===404){
+        res = await fetch(`${API}/comments?postId=${encodeURIComponent(postId)}`, { headers: authHeaders() });
+        if(res.ok){ const d = await res.json(); return Array.isArray(d.comments)?d.comments:d; }
+      }
+      return [];
+    }catch{ return []; }
+  }
+
+  /* ===== Best/Like API ===== */
+  async function setBest(id){
+    const r = await fetch(`${API}/comments/${encodeURIComponent(id)}/best`, { method:'PUT', headers:authHeaders() });
+    if(!r.ok) throw new Error(); return r.json().catch(()=>({}));
+  }
+  async function likeRequest(id){
+    const r = await fetch(`${API}/comments/${encodeURIComponent(id)}/like`, { method:'PUT', headers:authHeaders() });
+    if(!r.ok) throw new Error(); return r.json().catch(()=>({}));
+  }
+
+  /* ===== replyId：同時考慮伺服器 + 本機 ===== */
+  async function getNextReplyId(){
+    try{
+      const [server, pending] = await Promise.all([fetchComments().catch(()=>[]), Promise.resolve(loadPending())]);
+      let max=0; [...server, ...pending].forEach(c=>{ const v=Number(c.replyId); if(!Number.isNaN(v)&&v>max) max=v; });
+      const fallback = (server.length||0) + (pending.length||0);
+      return (max || fallback) + 1;
+    }catch{ return (loadPending().length||0)+1; }
+  }
+
+  /* ===== 留言作者判定 ===== */
+  function getCommentAuthorId(c){
+    const a = c.author;
+    if (!a) return String(c.authorId || c.userId || '');
+    if (typeof a === 'string') return String(a);
+    return String(a._id || a.id || a.userId || '');
+  }
+
+  /* ===== 渲染留言（把「去商店使用」改為真正的按讚）===== */
+  function iLikedThis(c){
+    const me=currentUserId(); if(!me) return false;
+    if(Array.isArray(c.likedBy)) return c.likedBy.some(x=>String(x._id||x.id||x)===me);
+    return false;
+  }
+
+  function renderComment(c, {pending=false, indexForDisplay=null}={}){
+    const div=document.createElement('div');
+    const cid=String(c._id||c.id||'');
+    const likes=Number(c.numOfLikes ?? c.likes ?? (Array.isArray(c.likedBy)?c.likedBy.length:0) ?? 0);
+    const isBest=Boolean(c.bestReply===true);
+    const cutoff=c.cutoffTime||c.cutofftime||c.cutoff||null;
+    const replyNo=(typeof c.replyId==='number'?c.replyId:indexForDisplay);
+    const liked=iLikedThis(c);
+    const receiverId = getCommentAuthorId(c);
+    const receiverName = c.author?.username || c.authorName || '匿名';
+
+    div.className='cmt'+(pending?' pending':'')+(isBest?' best':'');
+    div.innerHTML=`
+      <div class="top">
+        <span class="badge gray">#${replyNo ?? '—'}</span>
+        <span class="name">${escapeHtml(receiverName)}</span>
+        ${isBest ? `<span class="badge">最佳留言</span>` : ''}
+        <span>· ${timeAgo(c.createdAt)}</span>
+        ${cutoff ? `<span class="meta">（截止：${escapeHtml(fmt(cutoff))}）</span>` : ''}
+      </div>
+      <div class="txt">${escapeHtml(c.content || '')}</div>
+      <div class="actions">
+        <span>讚數：<b id="lk-${cid}">${likes}</b></span>
+        ${(!pending && cid) ? `<button class="btn like-btn ${liked?'active':''}" data-like="${cid}" data-author="${receiverId}">👍 ${liked?'已讚':'按讚/取消'}</button>` : ''}
+        ${(!pending && cid && isPostAuthor()) ? `<button class="btn" data-best="${cid}">${isBest ? '取消最佳' : '設為最佳'}</button>` : ''}
+      </div>
+    `;
+
+    /* like：成功後切換外觀、更新數字，並給留言作者 ±50 分 */
+    if (!pending && cid) {
+      const btn = div.querySelector(`[data-like="${cid}"]`);
+      btn?.addEventListener('click', async (ev)=>{
+        if(!localStorage.getItem('token') && !localStorage.getItem('authToken')){ location.href='login2.html'; return; }
+        const b=ev.currentTarget; b.disabled=true;
+        try{
+          const data = await likeRequest(cid);
+          const after = Number(data.likes ?? data.numOfLikes ?? document.getElementById(`lk-${cid}`)?.textContent ?? likes);
+          const nEl = document.getElementById(`lk-${cid}`); if(nEl) nEl.textContent = after;
+
+          const nowLiked = !b.classList.contains('active');
+          b.classList.toggle('active');
+          b.textContent = '👍 ' + (b.classList.contains('active') ? '已讚' : '按讚/取消');
+
+          const targetUser = b.getAttribute('data-author');
+          if (targetUser) addPoints(targetUser, nowLiked ? 50 : -50); // ★ 按讚=+50，取消=-50
+        }catch(e){ console.warn('like 失敗：', e); } finally{ b.disabled=false; }
+      });
+    }
+
+    /* best（只有文章作者） */
+    if (!pending && cid && isPostAuthor()) {
+      const btn = div.querySelector(`[data-best="${cid}"]`);
+      btn?.addEventListener('click', async (ev)=>{
+        if(!localStorage.getItem('token') && !localStorage.getItem('authToken')){ location.href='login2.html'; return; }
+        const b=ev.currentTarget; b.disabled=true;
+        try{ await setBest(cid); await loadComments(); }catch(e){ console.warn('setBest 失敗：', e); } finally{ b.disabled=false; }
+      });
+    }
+
+    return div;
+  }
+
+  /* ===== 載入留言（含顯示用 replyId 連號）===== */
   async function loadComments(){
-    const box = document.getElementById('comments');
-    const empty = document.getElementById('empty');
-    box.innerHTML = ''; empty.style.display='none';
+    const list=document.getElementById('cList'), empty=document.getElementById('cEmpty');
+    list.innerHTML=''; empty.style.display='none';
 
-    try{
-      // 公開端點：GET /api/comments/post/:postId
-      const res = await fetch(`${API_BASE}/api/comments/post/${encodeURIComponent(postId)}`);
-      if(!res.ok) throw new Error('無法取得留言');
-      const list = await res.json();
+    // 先顯示本機暫存
+    const pending=loadPending();
+    pending.forEach((p,i)=> list.appendChild(renderComment(p,{pending:true,indexForDisplay:`p${pending.length-i}`})));
 
-      if(!Array.isArray(list) || list.length===0){ empty.style.display=''; return; }
+    // 再顯示後端
+    const server=await fetchComments();
+    if(!pending.length && !server.length){ empty.style.display=''; return; }
 
-      list.forEach(c=>{
-        // 後端 populate 後的 author 是物件：{ _id, username }
-        const authorName =
-          (c.author && typeof c.author === 'object')
-            ? (c.author.username || c.author.name || '匿名')
-            : (c.authorName || c.author || '匿名');
+    server.sort((a,b)=> new Date(b.createdAt)-new Date(a.createdAt));
+    // 對沒有 replyId 的留言發配不重複連號
+    const used=new Set(); server.forEach(sc=>{ if(Number.isFinite(Number(sc.replyId))) used.add(Number(sc.replyId)); });
+    let cursor=1;
+    server.forEach(sc=>{
+      let no=Number.isFinite(Number(sc.replyId))?Number(sc.replyId):null;
+      if(no==null){ while(used.has(cursor)) cursor++; no=cursor; used.add(no); cursor++; }
+      list.appendChild(renderComment(sc,{indexForDisplay:no}));
+    });
 
-        // 目前後端沒有提供 authorRole，這裡仍保留函式，預設顯示「訪客」
-        const isTeacher = ['mentor','teacher','老師','教師']
-          .includes(String(c.authorRole||'').toLowerCase());
+    if(server.length) removePendingIfSynced(server);
+  }
 
-        // 後端最佳欄位：bestReply（布林）
-        const isBest = !!c.bestReply;
-
-        // 讚數：numOfLikes 或 likedBy.length
-        const likeCnt =
-          (typeof c.numOfLikes === 'number') ? c.numOfLikes :
-          (Array.isArray(c.likedBy) ? c.likedBy.length : 0);
-
-        // 可選 UX：只有文章作者顯示「設為最佳」按鈕（後端仍會驗）
-        const currentUserId = String(user.id || '');
-        const postAuthorId  = String(window.__postAuthorId || c.postAuthorId || '');
-        const canMarkBest   = postAuthorId && currentUserId && (currentUserId === postAuthorId);
-
-        const div = document.createElement('div');
-        div.className = 'cmt';
-        div.innerHTML = `
-          <div>${escapeHtml(c.content || c.text || '')}</div>
-          <div class="cmeta">
-            <span class="badge ${isTeacher?'teacher':''}">
-              ${escapeHtml(authorName)}（${displayRole(c.authorRole)}）
-            </span>
-            <span>·</span>
-            <span>${timeAgo(c.createdAt || c.updatedAt)}</span>
-            ${isBest ? '<span>·</span><span class="badge">🏆 最佳</span>' : ''}
-            <span>·</span>
-            <button class="btn linklike" onclick="likeComment('${c._id||c.id}')">👍 ${likeCnt}</button>
-            ${canMarkBest ? `<button class="btn linklike" onclick="markBest('${c._id||c.id}')">🏆 設為最佳</button>` : ''}
-          </div>
-        `;
-        box.appendChild(div);
-      });
-    }catch(e){
-      box.innerHTML = `<div class="empty">留言讀取失敗：${escapeHtml(e.message)}</div>`;
+  /* ===== 對齊：最多 5 次、每次 600ms ===== */
+  async function reconcileAfterPost(insertedContent){
+    for (let i=0;i<5;i++){
+      await new Promise(r=>setTimeout(r,600));
+      const cmts=await fetchComments();
+      const found=cmts.some(sc=>sc && sc.content===insertedContent);
+      if(found){ savePending(loadPending().filter(p=>p.content!==insertedContent)); await loadComments(); return; }
     }
   }
 
-  // ========== 送出留言（需要登入） ==========
-  async function submitComment(){
-    const tip = document.getElementById('tip');
-    tip.style.display='none'; tip.textContent='';
-    const text = document.getElementById('cmtContent').value.trim();
-    if(!text){ tip.textContent='請輸入留言內容'; tip.style.display=''; return; }
+  /* ===== 新增留言：送 cutoffTime + replyId ===== */
+  function defaultCutoffISO(){ const d=new Date(Date.now()+7*24*60*60*1000); const pad=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+  function toISOFromLocalInput(v){ if(!v) return null; try{ return new Date(v).toISOString(); }catch{ return null; } }
 
-    const token = localStorage.getItem('token');
-    if(!token){
-      tip.textContent='請先登入後再留言（將前往登入頁）';
-      tip.style.display='';
-      setTimeout(()=>location.href='login2.html', 600);
-      return;
+  async function addComment(){
+    const ta=document.getElementById('cContent');
+    const status=document.getElementById('cStatus');
+    const cutoffV=document.getElementById('cutoffInput').value;
+    const txt=ta.value.trim();
+    if(!txt){ status.textContent='請輸入內容'; status.className='warn'; return; }
+
+    const nextReplyId = await getNextReplyId();
+
+    const u=getCurrentUser();
+    const pendingItem={
+      tempId:'tmp_'+Date.now(), postId,
+      authorName:u.username||u.name||'我',
+      content:txt, createdAt:new Date().toISOString(),
+      cutoffTime:toISOFromLocalInput(cutoffV),
+      replyId: nextReplyId
+    };
+    addPending(pendingItem);
+    document.getElementById('cEmpty').style.display='none';
+    document.getElementById('cList').prepend(renderComment(pendingItem,{pending:true,indexForDisplay:nextReplyId}));
+
+    status.textContent='送出中…'; status.className='meta'; ta.value='';
+    try{
+      const res=await fetch(`${API}/comments`,{
+        method:'POST', headers:authHeaders(),
+        body:JSON.stringify({ postId, content:txt, cutoffTime:toISOFromLocalInput(cutoffV), replyId: nextReplyId })
+      });
+      if(!res.ok){
+        status.textContent=(res.status===401||res.status===403)?'請先登入再留言':'送出失敗（已暫存於本機）';
+        status.className='warn'; return;
+      }
+      status.textContent='已送出！'; setTimeout(()=>{ status.textContent=''; }, 900);
+      reconcileAfterPost(txt);
+    }catch{
+      status.textContent='網路異常（已暫存於本機）'; status.className='warn';
     }
-
-    try{
-      // POST /api/comments （驗證）
-      const res = await fetch(`${API_BASE}/api/comments`, {
-        method:'POST',
-        headers:{ 'Content-Type':'application/json', ...authHeader() },
-        body: JSON.stringify({ postId, content: text })
-      });
-      if(!res.ok){
-        const msg = await safeText(res);
-        throw new Error(msg || '留言失敗');
-      }
-      document.getElementById('cmtContent').value='';
-      await loadComments();
-      document.getElementById('comments')?.lastElementChild?.scrollIntoView({ behavior:'smooth' });
-    }catch(e){
-      tip.textContent = e.message || '留言失敗';
-      tip.style.display='';
-    }
   }
 
-  async function likeComment(commentId){
-    const token = localStorage.getItem('token');
-    if(!token){ alert('請先登入'); return; }
-    try{
-      // PUT /api/comments/:id/like
-      const res = await fetch(`${API_BASE}/api/comments/${encodeURIComponent(commentId)}/like`, {
-        method:'PUT', headers:{ ...authHeader() }
-      });
-      if(!res.ok){
-        const msg = await safeText(res);
-        throw new Error(msg || '按讚失敗');
-      }
-      await loadComments();
-    }catch(e){ alert(e.message); }
-  }
-
-  async function markBest(commentId){
-    const token = localStorage.getItem('token');
-    if(!token){ alert('請先登入'); return; }
-    try{
-      // PUT /api/comments/:commentId/best
-      const res = await fetch(`${API_BASE}/api/commen ts/${encodeURIComponent(commentId)}/best`, {
-        method:'PUT', headers:{ ...authHeader() }
-      });
-      if(!res.ok){
-        const msg = await safeText(res);
-        throw new Error(msg || '設定最佳留言失敗（只有文章作者能設定）');
-      }
-      await loadComments();
-    }catch(e){ alert(e.message); }
-  }
-
-  // 初始化
-  loadPost().then(loadComments);
+  document.getElementById('btnAdd').addEventListener('click', addComment);
+  (function initCutoff(){ document.getElementById('cutoffInput').value = defaultCutoffISO(); })();
+  (async function init(){ if(!postId){ alert('缺少文章ID'); location.href='post.html'; return; } refreshUserBadge(); await loadPost(); await loadComments(); setInterval(loadComments, 10000); })();
 </script>
 </body>
 </html>

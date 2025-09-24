@@ -91,12 +91,17 @@
     <label for="email">電子郵件</label>
     <input id="email" type="email" placeholder="name@example.com" autocomplete="email" />
 
-    <label for="roleSelect">角色（保留欄位，可不影響登入權限）</label>
+    <label for="roleSelect">角色</label>
     <select id="roleSelect">
       <option value="student">學生</option>
-      <option value="mentor">老師</option>
+      <option value="teacher">老師</option>
     </select>
+
     <div class="hint">目前登入只用 walletId；此欄位屬於記錄用途，未參與驗證。</div>
+
+    <!-- 新增：主修/科系 -->
+    <label for="major">主修科系</label>
+    <input id="major" type="text" placeholder="例如：商船學系、資訊工程系" />
 
     <label for="walletId">錢包位址</label>
     <input id="walletId" type="text" placeholder="請先連接 MetaMask 以自動填入" readonly />
@@ -158,10 +163,12 @@
     function validateInputs() {
       const username = $("username").value.trim();
       const email = $("email").value.trim();
+      const major = $("major").value.trim();
       const walletId = $("walletId").value.trim();
 
       if (!username) return "請填寫使用者名稱。";
       if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return "請填入有效的電子郵件。";
+      if (!major) return "請填寫主修科系。";
       if (!walletId) return "請先連接 MetaMask 以取得錢包位址。";
       return null;
     }
@@ -173,8 +180,9 @@
       const payload = {
         username: $("username").value.trim(),
         email: $("email").value.trim(),
-        role: $("roleSelect").value || "student",
+        role: $("roleSelect").value || "student", // 'student' 或 'teacher'
         walletId: $("walletId").value.trim(),
+        major: $("major").value.trim(),
       };
 
       try {
@@ -193,7 +201,6 @@
           return;
         }
 
-        // 可依你後端回傳調整
         if (data.token) localStorage.setItem("token", data.token);
         if (data.user)  localStorage.setItem("user", JSON.stringify(data.user));
 

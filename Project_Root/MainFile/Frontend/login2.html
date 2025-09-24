@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
-  <title>登入系統（Wallet Only）</title>
+  <title>登入系統（Wallet + Name）</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <style>
     :root {
@@ -51,10 +51,7 @@
       background: #0f172a;
       color: var(--text);
     }
-    input[readonly] {
-      background: #0c1324;
-      color: #cbd5e1;
-    }
+    input[readonly] { background: #0c1324; color: #cbd5e1; }
     input::placeholder { color: #64748b; }
     input:focus, select:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
     button {
@@ -76,17 +73,19 @@
 
   <h1>登入系統</h1>
   <div id="loginBox">
-    <!-- 角色選擇：保留但不傳到後端 -->
-    <label for="roleSelect">角色（可選）</label>
-    <select id="roleSelect">
+    <!-- 角色選擇（僅顯示，不影響登入條件；以後端回傳為準） -->
+    <label for="roleDisplay">角色（顯示用）</label>
+    <select id="roleDisplay" disabled>
       <option value="student">學生</option>
       <option value="mentor">老師</option>
+      <option value="teacher">老師</option>
+      <option value="admin">管理員</option>
     </select>
-    <div class="hint">目前登入只依據錢包位址，不會傳送角色到後端。</div>
+    <div class="hint">登入驗證只比對「名字 + 錢包位址」。成功後顯示後端回傳的角色。</div>
 
-    <!-- NEW: 名字（必填） -->
+    <!-- 名字（必填） -->
     <label for="username">名字（必填）</label>
-    <input id="username" type="text" placeholder="請輸入名字" autocomplete="name" />
+    <input id="username" type="text" placeholder="請輸入名字（需與註冊相同）" autocomplete="name" />
 
     <label for="walletId">錢包位址</label>
     <input id="walletId" type="text" placeholder="0x..." readonly />
@@ -104,140 +103,132 @@
   </div>
 
   <script>
-    const statusEl = document.getElementById("status");
-    const walletInput = document.getElementById("walletId");
-    const roleSelect = document.getElementById("roleSelect");
-    const usernameInput = document.getElementById("username"); // NEW
+  const statusEl    = document.getElementById("status");
+  const walletEl    = document.getElementById("walletId");
+  const nameEl      = document.getElementById("username");
+  const roleDisplay = document.getElementById("roleDisplay");
 
-    function setStatus(msg) { statusEl.textContent = msg || ""; }
+  function setStatus(msg, isError = false) {
+    statusEl.textContent = msg || "";
+    statusEl.style.color = isError ? "#fca5a5" : "#cbd5e1";
+  }
 
-    // 連接 MetaMask：讀取當前選擇的帳戶並寫入欄位
-    async function connectMetaMask() {
-      if (!window.ethereum) {
-        setStatus("找不到 MetaMask，請先安裝或點下方按鈕。");
-        return;
-      }
-      try {
-        const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
-        const addr = (accounts && accounts[0]) ? accounts[0] : "";
-        walletInput.value = addr;
-        setStatus(addr ? "已連接 MetaMask。" : "請在 MetaMask 選擇帳號。");
-      } catch (err) {
-        console.error(err);
-        setStatus("連接 MetaMask 失敗，請重試或檢查擴充套件權限。");
-      }
+  async function connectMetaMask() {
+    if (!window.ethereum) {
+      setStatus("找不到 MetaMask，請先安裝或點下方按鈕。", true);
+      return;
     }
-
-    // 監聽帳號切換，動態更新欄位
-    if (window.ethereum) {
-      window.ethereum.on("accountsChanged", accounts => {
-        const addr = (accounts && accounts[0]) ? accounts[0] : "";
-        walletInput.value = addr;
-        // 帳號切換時，清除舊 token（若有）
-        if (addr) {
-          localStorage.removeItem("token");
-          localStorage.removeItem("user");
-          setStatus("已切換 MetaMask 帳號，請重新登入。");
-        } else {
-          setStatus("MetaMask 未連接任何帳號。");
-        }
-      });
+    try {
+      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+      const addr = (accounts && accounts[0]) ? accounts[0] : "";
+      walletEl.value = addr;
+      setStatus(addr ? "已連接 MetaMask。" : "請在 MetaMask 選擇帳號。");
+    } catch (err) {
+      console.error(err);
+      setStatus("連接 MetaMask 失敗，請重試或檢查擴充套件權限。", true);
     }
+  }
 
-    // 登入：送 walletId + username（名字必填）
-    async function login() {
-      const walletId = (walletInput.value || "").trim();
-      const username = (usernameInput.value || "").trim(); // NEW
-
-      if (!walletId) {
-        setStatus("請先連接 MetaMask 以取得錢包位址。");
-        return;
-      }
-      if (!username) { // NEW
-        setStatus("請先輸入名字。");
-        return;
-      }
-
-      const payload = { walletId, username }; // NEW
-
-      try {
-        setStatus("登入中…");
-        const res = await fetch("http://localhost:3000/api/auth/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        });
-
-        const data = await res.json().catch(() => ({}));
-
-        if (!res.ok) {
-          const msg = data.message || data.error || ("登入失敗（HTTP " + res.status + "）");
-          setStatus("❌ " + msg);
-          return;
-        }
-
-        // 假設後端回：{ token, user }
-        if (data.token) localStorage.setItem("token", data.token);
-
-        const selectedRole = (roleSelect.value === "mentor") ? "mentor" : "student";
-        const serverUser = data.user || {};
-        // NEW: 以剛填的名字優先
-        const finalName = username || serverUser.username || serverUser.name || ("使用者_" + walletId.slice(2, 8));
-
-        const mergedUser = {
-          ...serverUser,
-          username: finalName, // NEW
-          walletId,
-          role: selectedRole
-        };
-        localStorage.setItem("user", JSON.stringify(mergedUser));
-
-        setStatus("✅ 登入成功，前往討論區…");
-        window.location.href = "post.html";
-      } catch (err) {
-        console.error(err);
-        setStatus("⚠️ 連線失敗，請確認本機 API 是否在 3000 埠運作。");
-      }
-    }
-
-    // 綁定事件
-    document.getElementById("btnConnect").addEventListener("click", connectMetaMask);
-    document.getElementById("btnMM").addEventListener("click", () => {
-      window.open("https://metamask.io/download", "_blank");
+  if (window.ethereum) {
+    window.ethereum.on("accountsChanged", accounts => {
+      const addr = (accounts && accounts[0]) ? accounts[0] : "";
+      walletEl.value = addr;
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      setStatus(addr ? "已切換 MetaMask 帳號，請重新登入。" : "MetaMask 未連接任何帳號。");
     });
-    document.getElementById("btnLogin").addEventListener("click", login);
+  }
 
-    // 初始提示
-    setStatus("請先連接 MetaMask、填好名字，再按登入。");
+  // 嚴格比對：名字 + 錢包位址
+  async function login() {
+    const walletId    = (walletEl.value || "").trim();
+    const enteredName = (nameEl.value || "").trim();
 
-    // 若是註冊後回來，顯示成功提示並嘗試帶入已授權帳號
-    (function showRegisteredNotice() {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get("registered") === "1") {
-        setStatus("✅ 註冊成功！請使用錢包登入。");
-        localStorage.removeItem(" token");
-        localStorage.removeItem("user");
-        if (window.ethereum) {
-          window.ethereum.request({ method: "eth_accounts" })
-            .then((accounts) => {
-              if (accounts && accounts[0]) {
-                walletInput.value = accounts[0];
-              }
-            }).catch(() => {});
-        }
-      } else {
-        // 若已授權 MetaMask，嘗試自動帶入
-        if (window.ethereum) {
-          window.ethereum.request({ method: "eth_accounts" })
-            .then((accounts) => {
-              if (accounts && accounts[0]) {
-                walletInput.value = accounts[0];
-                setStatus("已偵測到已授權帳號，可直接登入。");
-              }
-            }).catch(() => {});
-        }
+    if (!walletId) { setStatus("請先連接 MetaMask 以取得錢包位址。", true); return; }
+    if (!enteredName) { setStatus("請先輸入名字（需與註冊相同）。", true); return; }
+
+    try {
+      setStatus("登入中…");
+      // 後端：用 walletId 取回該錢包的帳號資料（serverName/role/token）
+      const res = await fetch("http://localhost:3000/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ walletId, username: enteredName })
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        const msg = data.message || data.error || (`登入失敗（HTTP ${res.status}）`);
+        setStatus("❌ " + msg, true);
+        return;
       }
-    })();
-  </script>
+
+      const serverName = (data.username ?? "").trim();
+      const serverRole = data.role || "student";
+
+      // 🔒 嚴格比對：名字必須與 serverName 完全一致（必要時可改成不分大小寫）
+      if (enteredName !== serverName) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        setStatus("❌ 名字與錢包位址不相符，無法登入。", true);
+        return;
+      }
+
+      // 儲存 token
+      if (data.token) localStorage.setItem("token", data.token);
+
+      // 以 token 向 /me 取得最終角色與名稱（以後端為準）
+      let finalRole = "student";
+      let userFromServerName = serverName; // ← 先宣告／預設
+      try {
+        const meRes = await fetch("http://localhost:3000/api/auth/me", {
+          method: "GET",
+          headers: { Authorization: "Bearer " + localStorage.getItem("token") }
+        });
+        if (meRes.ok) {
+          const me = await meRes.json();
+          // 統一映射角色字串
+          finalRole = (String(me.role || "").trim().toLowerCase() === "teacher") ? "teacher" : "student";
+          userFromServerName = (me.username || me.name || "").trim() || serverName;
+        }
+      } catch (e) {
+        // /me 失敗不致命，沿用 login 回傳
+      }
+
+      // 最終落地 user
+      const user = { username: userFromServerName, walletId, role: finalRole };
+      localStorage.setItem("user", JSON.stringify(user));
+
+      // 顯示 / 導頁
+      roleDisplay.value = finalRole;
+      setStatus("✅ 登入成功，前往討論區…");
+      window.location.href = "post.html";
+    } catch (err) {
+      console.error(err);
+      setStatus("⚠️ 連線失敗，請確認本機 API 是否在 3000 埠運作。", true);
+    }
+  }
+
+  // 綁定事件
+  document.getElementById("btnConnect").addEventListener("click", connectMetaMask);
+  document.getElementById("btnMM").addEventListener("click", () => window.open("https://metamask.io/download", "_blank"));
+  document.getElementById("btnLogin").addEventListener("click", login);
+
+  // 初始提示 + 嘗試自動帶入已授權地址
+  setStatus("請先連接 MetaMask、填好名字，再按登入。");
+  (async () => {
+    if (window.ethereum) {
+      try {
+        const accounts = await window.ethereum.request({ method: "eth_accounts" });
+        if (accounts && accounts[0]) {
+          walletEl.value = accounts[0];
+          setStatus("已偵測到已授權帳號，可直接登入。");
+        }
+      } catch {}
+    }
+  })();
+</script>
+
 </body>
 </html>
