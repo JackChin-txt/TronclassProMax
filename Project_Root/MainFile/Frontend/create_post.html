@@ -151,5 +151,70 @@
     }
   }
 </script>
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+
+<script type="module">
+  import { initPost } from './js/chain/module/post.js';
+
+  // 依你的判斷規則算出完整 API URL（不讀你上面 const，直接再算一次）
+  const API = (location.origin.includes('localhost:3000') || location.origin.startsWith('http://localhost:3000'))
+    ? '/api' : 'http://localhost:3000/api';
+
+  // 覆蓋舊的 submitPost（按鈕事件不需要改）
+  window.submitPost = async function submitPost() {
+    // 用你原本的工具函式（在 module 裡用 window. 前綴呼叫）
+    window.setMsg?.('');
+    const title   = document.getElementById('title').value.trim();
+    const content = document.getElementById('content').value.trim();
+    if (!title || !content) { window.setMsg?.('請填寫標題與內容'); return; }
+
+    const token = localStorage.getItem('token');
+    if (!token) { window.setMsg?.('尚未登入，請先登入'); setTimeout(()=>location.href='login2.html',800); return; }
+
+    try {
+      window.setMsg?.('送出中…');
+
+      // 1) 後端建立 → 拿 _id 當 CID
+      const res  = await fetch(`${API}/posts`, {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json', ...(window.authHeader?.()||{}) },
+        body: JSON.stringify({ title, content })
+      });
+      const data = await (window.safeJson ? window.safeJson(res) : res.json());
+      if (!res.ok) throw new Error((data && data.message) || '後端建立貼文失敗');
+
+      const cid = data?._id || data?.post?._id || data?.result?._id; // _id === CID
+      if (!cid) throw new Error('後端未回 _id，無法上鏈');
+
+      // 2) 上鏈：CreatePost(CID = _id)
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      await provider.send('eth_requestAccounts', []);
+      const signer   = provider.getSigner();
+
+      const addrs = await fetch('./js/chain/addresses.json').then(r=>r.json());
+      const post  = await initPost({ provider, signer, address: addrs.PostManager });
+
+      const { tx, receipt, postID, author } = await post.createPost(cid);
+
+      // 3) 讀回鏈上資訊 + console 驗證
+      let info = null; try { if (postID) info = await post.getPostInfo(postID); } catch {}
+      console.groupCollapsed(' CreatePost 上鏈完成（展開查看）');
+      console.log('DB _id (CID):', cid);
+      console.log('tx hash     :', tx);
+      console.log('block       :', receipt?.blockNumber);
+      console.log('postID      :', postID?.toString?.());
+      console.log('author      :', author || info?.Author);
+      console.log('postInfo    :', info);
+      console.groupEnd();
+
+      window.setMsg?.('建立成功，正在跳轉…', true);
+      setTimeout(()=> location.href = `comment.html?id=${encodeURIComponent(cid)}`, 400);
+    } catch (e) {
+      window.setMsg?.(e.message || '建立貼文失敗');
+      console.error(e);
+    }
+  };
+</script>
+
 </body>
 </html>

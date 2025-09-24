@@ -72,14 +72,13 @@ contract QnAManager is Ownable
     //shop
     //=========================
 
-    function redeemAttempt(uint256 itemPrice, uint256 amount) external
+    function redeemAttempt(uint256 cost) external
     {
-        uint256 cost = itemPrice * amount;
         require( walletCt.getAccountMoney(msg.sender) >= cost ," user don't have enough money ");
         walletCt.Burn(msg.sender, cost);
-        emit ItemRedeemed(msg.sender, itemPrice, amount, cost);
+        emit ItemRedeemed(msg.sender, cost);
     }
-    event ItemRedeemed(address indexed user, uint256 indexed itemPrice, uint256 amount, uint256 cost);
+    event ItemRedeemed(address indexed user, uint256 cost);
 
     //=========================
     //QnAManaget main

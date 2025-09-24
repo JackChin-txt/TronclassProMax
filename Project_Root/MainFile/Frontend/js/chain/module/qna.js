@@ -187,31 +187,38 @@ export async function initQna({ provider, signer, address, abi, expectedChainId,
   // 常見簽名：redeemAttempt(uint256 itemPrice, uint256 amount)
   // - itemPriceHumanOrBN：單價（人類數字或最小單位）
   // - countHumanOrBN：數量（通常就是整數；直接丟 BigNumber.from）
-    async function redeemAttempt(itemPriceHumanOrBN, countHumanOrBN, overrides = {}) 
+    // qna.js 中，覆蓋 redeemAttempt
+    async function redeemAttempt(arg1, arg2, overrides = {}) 
     {
         ensureSigner();
         if (!hasFn("redeemAttempt")) 
             throw new Error("QnA 合約缺少 redeemAttempt");
         try 
         {
-            const price = ethers.BigNumber.isBigNumber(itemPriceHumanOrBN)
-                ? itemPriceHumanOrBN
-                : await toUnit(itemPriceHumanOrBN);
-            const count = ethers.BigNumber.isBigNumber(countHumanOrBN)
-                ? countHumanOrBN
-                : ethers.BigNumber.from(String(countHumanOrBN || 1));
-            const tx = await contract.redeemAttempt(price, count, overrides);
+            // 先把第一個參數轉成最小單位
+            let totalBN = ethers.BigNumber.isBigNumber(arg1) ? arg1 : await toUnit(arg1);
+            // 若有第二個參數，先相乘成總額
+            if (arg2 != null) 
+            {
+                const countBN = ethers.BigNumber.isBigNumber(arg2)
+                    ? arg2
+                    : ethers.BigNumber.from(String(arg2));
+                totalBN = totalBN.mul(countBN);
+            }
+            const tx = await contract.redeemAttempt(totalBN, overrides);
             const receipt = await tx.wait();
-            // 事件名不確定；先嘗試 "Redeemed" / "RedeemAttempt"
             const ev = pickEventFromReceipt(receipt, "Redeemed") || pickEventFromReceipt(receipt, "RedeemAttempt");
-            const out = { tx: tx.hash, receipt, price, count };
+            const out = { tx: tx.hash, receipt, total: totalBN };
             if (ev) 
             {
                 out.user   = ev.args?.user ?? ev.args?.from ?? undefined;
-                out.amount = ev.args?.amount ?? ev.args?.burnAmount ?? undefined;
+                out.amount = ev.args?.amount ?? ev.args?.burnAmount ?? out.total;
             }
             return out;
-        } catch (e) { throw new Error(normalizeErr(e)); }
+        } catch (e) 
+        {
+            throw new Error(normalizeErr(e));
+        }
     }
 
   // ========== Events  ==========
