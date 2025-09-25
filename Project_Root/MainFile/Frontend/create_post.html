@@ -156,65 +156,218 @@
 <script type="module">
   import { initPost } from './js/chain/module/post.js';
 
-  // 依你的判斷規則算出完整 API URL（不讀你上面 const，直接再算一次）
-  const API = (location.origin.includes('localhost:3000') || location.origin.startsWith('http://localhost:3000'))
-    ? '/api' : 'http://localhost:3000/api';
+  const API_URL = 'http://localhost:3000/api';
+  const MAP_KEY = 'chainPostIdByCid'; // { [cid]: { type:'uint'|'bytes32'|'string', value:string } }
 
-  // 覆蓋舊的 submitPost（按鈕事件不需要改）
+  // ---------- 小工具 ----------
+  const authHeader = () => {
+    const t = localStorage.getItem('token');
+    return t ? { Authorization: `Bearer ${t}` } : {};
+  };
+  const setMsg = (txt, ok=false) => {
+    const el = document.getElementById('msg');
+    if (!el) { txt && console[ok?'log':'warn'](txt); return; }
+    el.textContent = txt || '';
+    el.className = 'msg ' + (ok ? 'ok' : (txt ? 'error' : ''));
+  };
+  const safeJson = async (r) => { try { return await r.json(); } catch { return null; } };
+  const safeText = async (r) => { try { return await r.text(); } catch { return ''; } };
+
+  const getIface    = (p) => (p?.interface || p?.contract?.interface || null);
+  const getContract = (p) => (p?.contract || p);
+  const toWire = (t, v) =>
+    t === 'bytes32'       ? ethers.utils.id(String(v)) :
+    t?.startsWith('uint') ? ethers.BigNumber.from(String(v)) :
+                            String(v);
+
+  const loadMap = ()=> { try{ return JSON.parse(localStorage.getItem(MAP_KEY)||'{}'); }catch{ return {}; } };
+  const saveMap = (m)=> localStorage.setItem(MAP_KEY, JSON.stringify(m||{}));
+  const putMap  = (cid, entry)=> { const m = loadMap(); m[cid]=entry; saveMap(m); };
+
+  // 取合約（拿到 wrapper + 原生合約 + iface）
+  async function getPostArtifacts() {
+    const provider = new ethers.providers.Web3Provider(window.ethereum);
+    await provider.send('eth_requestAccounts', []);
+    let net = await provider.getNetwork();
+    if (+net.chainId !== 31337) {
+      await window.ethereum.request({ method:'wallet_switchEthereumChain', params:[{ chainId:'0x7a69' }] });
+      net = await provider.getNetwork();
+    }
+    const addrs = await fetch('./js/chain/addresses.json').then(r=>r.json());
+    const code  = await provider.getCode(addrs.PostManager);
+    if (!code || code === '0x') throw new Error('PostManager 未部署或位址錯誤；請重佈署並更新 ./js/chain/addresses.json');
+
+    const signer  = provider.getSigner();
+    const wrapper = await initPost({ provider, signer, address: addrs.PostManager });
+    const contract= getContract(wrapper);
+    const iface   = getIface(wrapper) || contract.interface;
+
+    return { provider, address:addrs.PostManager, wrapper, contract, iface };
+  }
+
+  // 把 ABI 內所有函式印出（助查）
+  function logAbiFunctions(iface) {
+    const fns = Object.keys(iface?.functions || {});
+    console.groupCollapsed('[ABI] functions ('+fns.length+')');
+    fns.forEach(k => console.log(' -', k));
+    console.groupEnd();
+  }
+
+  // 挑選一個「看起來像建立貼文」的函式（合約層）
+  function pickCreateLikeSig(iface) {
+    const fns = Object.keys(iface?.functions || {});
+    if (!fns.length) return null;
+
+    // 1) 直接命中含 createPost 的
+    let cand = fns.find(k => /^createpost\(/i.test(k));
+    if (cand) return cand;
+
+    // 2) 名稱同時含 create/new/add/publish + post
+    const nameScore = fns.map(sig => {
+      const name = sig.split('(')[0].toLowerCase();
+      let score = 0;
+      if (name.includes('post')) score += 2;
+      if (/(create|new|add|publish|write)/.test(name)) score += 2;
+      // 參數型別偏好：第一個是 string/bytes32/uint，第二個若存在是 string
+      const inputs = iface.functions[sig]?.inputs || [];
+      const t0 = inputs[0]?.type || '';
+      const t1 = inputs[1]?.type || '';
+      if (/^(string|bytes32|uint)/.test(t0)) score += 1;
+      if (t1 && /^string/.test(t1)) score += 1;
+      return { sig, score };
+    }).sort((a,b)=>b.score-a.score);
+
+    cand = (nameScore[0]?.score > 0) ? nameScore[0].sig : null;
+    if (cand) return cand;
+
+    // 3) 退一步：任何帶 1~2 個參數、第一個是 string/bytes32/uint 的函式
+    cand = fns.find(sig => {
+      const ins = iface.functions[sig]?.inputs || [];
+      if (ins.length===0 || ins.length>2) return false;
+      const t0 = ins[0]?.type || '';
+      return /^(string|bytes32|uint)/.test(t0);
+    });
+    return cand || null;
+  }
+
+  // 從 receipt 事件推論 on-chain postId（第一個事件第一個參數）
+  function normId(v){
+    if (v === undefined || v === null) return null;
+    if (ethers.BigNumber.isBigNumber(v)) return { type:'uint', value:v.toString() };
+    if (typeof v === 'string' && /^0x[0-9a-fA-F]{64}$/.test(v)) return { type:'bytes32', value:v };
+    if (typeof v === 'string') return { type:'string', value:v };
+    return null;
+  }
+  function extractPostIdFromReceipt(iface, receipt, contractAddr){
+    const addr = String(contractAddr||'').toLowerCase();
+    for (const lg of (receipt.logs || [])) {
+      if (addr && String(lg.address||'').toLowerCase() !== addr) continue;
+      try {
+        const ev = iface.parseLog(lg);
+        const arr = Array.from(ev?.args || []);
+        if (!arr.length) continue;
+        const candidate = normId(arr[0]);
+        if (candidate) return candidate;
+      } catch { /* ignore */ }
+    }
+    return null;
+  }
+
+  // -------- 主流程：後端 → 送鏈（自動選函式） → 等 mined → 存映射 → 跳轉 --------
   window.submitPost = async function submitPost() {
-    // 用你原本的工具函式（在 module 裡用 window. 前綴呼叫）
-    window.setMsg?.('');
-    const title   = document.getElementById('title').value.trim();
-    const content = document.getElementById('content').value.trim();
-    if (!title || !content) { window.setMsg?.('請填寫標題與內容'); return; }
-
-    const token = localStorage.getItem('token');
-    if (!token) { window.setMsg?.('尚未登入，請先登入'); setTimeout(()=>location.href='login2.html',800); return; }
+    const btn = document.getElementById('btnSubmit');
+    btn && (btn.disabled = true);
 
     try {
-      window.setMsg?.('送出中…');
+      const title   = (document.getElementById('title')?.value || '').trim();
+      const content = (document.getElementById('content')?.value || '').trim();
+      if (!title || !content) throw new Error('請填寫標題與內容');
 
-      // 1) 後端建立 → 拿 _id 當 CID
-      const res  = await fetch(`${API}/posts`, {
-        method: 'POST',
-        headers: { 'Content-Type':'application/json', ...(window.authHeader?.()||{}) },
+      setMsg('送出中…');
+
+      // 1) 後端建立，拿 CID（= Mongo _id）
+      const res  = await fetch(`${API_URL}/posts`, {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', ...authHeader() },
         body: JSON.stringify({ title, content })
       });
-      const data = await (window.safeJson ? window.safeJson(res) : res.json());
-      if (!res.ok) throw new Error((data && data.message) || '後端建立貼文失敗');
-
-      const cid = data?._id || data?.post?._id || data?.result?._id; // _id === CID
+      if (!res.ok) {
+        const txt = await safeText(res);
+        throw new Error(txt || '建立貼文失敗');
+      }
+      const data = await safeJson(res);
+      const cid  = data?._id || data?.post?._id || data?.result?._id;
       if (!cid) throw new Error('後端未回 _id，無法上鏈');
 
-      // 2) 上鏈：CreatePost(CID = _id)
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      await provider.send('eth_requestAccounts', []);
-      const signer   = provider.getSigner();
+      // 2) 取得合約資源
+      setMsg('鏈上寫入中…');
+      const { provider, address, wrapper, contract, iface } = await getPostArtifacts();
+      logAbiFunctions(iface);
 
-      const addrs = await fetch('./js/chain/addresses.json').then(r=>r.json());
-      const post  = await initPost({ provider, signer, address: addrs.PostManager });
+      // 2a) 先找 ABI 裡最像的建立函式
+      let sig = pickCreateLikeSig(iface);
+      let receipt = null;
 
-      const { tx, receipt, postID, author } = await post.createPost(cid);
+      if (sig) {
+        // 直接用原生合約 + 完整簽名
+        const ins  = iface.getFunction(sig).inputs.map(i => i.type);
+        const args = [ toWire(ins[0], cid) ];
+        if (ins.length >= 2) args.push(toWire(ins[1], title || ''));
+        console.log('[create] pick', sig, 'args=', args);
 
-      // 3) 讀回鏈上資訊 + console 驗證
-      let info = null; try { if (postID) info = await post.getPostInfo(postID); } catch {}
-      console.groupCollapsed(' CreatePost 上鏈完成（展開查看）');
-      console.log('DB _id (CID):', cid);
-      console.log('tx hash     :', tx);
-      console.log('block       :', receipt?.blockNumber);
-      console.log('postID      :', postID?.toString?.());
-      console.log('author      :', author || info?.Author);
-      console.log('postInfo    :', info);
-      console.groupEnd();
+        const tx = await contract[sig](...args);
+        console.log('🧾 Create sent:', tx.hash);
+        receipt = await tx.wait();
+        console.log('✅ Create mined: block', receipt.blockNumber);
+      } else {
+        // 2b) 沒有 ABI 能用：嘗試 wrapper 上常見的方法名
+        const candidates = ['createPost','newPost','addPost','publishPost','post','create','writePost'];
+        const name = candidates.find(n => typeof wrapper?.[n] === 'function');
+        if (!name) {
+          throw new Error('ABI 中找不到 createPost 函式，且 wrapper 也沒有常見建立方法。請檢查 initPost 或合約名稱。');
+        }
+        // 用函式長度推參數數量
+        const need = Number(wrapper[name].length || 1);
+        const args = need >= 2 ? [cid, title] : [cid];
+        console.log('[create(wrapper)] pick', name, 'args=', args);
 
-      window.setMsg?.('建立成功，正在跳轉…', true);
+        const ret  = await wrapper[name](...args);
+        const hash = ret?.hash || ret?.tx || ret?.transactionHash;
+        if (!hash) throw new Error('建立成功但未取得 tx hash');
+        console.log('🧾 Create sent (wrapper):', hash);
+        receipt = await provider.waitForTransaction(hash, 1);
+        console.log('✅ Create mined (wrapper): block', receipt?.blockNumber);
+      }
+
+      // 3) 解析 on-chain postId 並存映射（給 reply 用）
+      const mapped = extractPostIdFromReceipt(iface, receipt, address);
+      if (mapped) {
+        putMap(cid, mapped);
+        console.log('[map] CID → onchain postId', cid, '→', mapped);
+      } else {
+        console.warn('[map] 無法自動取得 on-chain postId（之後 reply 會用 CID/bytes32 嘗試）');
+      }
+
+      // 4) 跳單篇頁
+      setMsg('建立成功，正在跳轉…', true);
       setTimeout(()=> location.href = `comment.html?id=${encodeURIComponent(cid)}`, 400);
     } catch (e) {
-      window.setMsg?.(e.message || '建立貼文失敗');
       console.error(e);
+      setMsg(e?.message || '建立貼文失敗');
+    } finally {
+      btn && (btn.disabled = false);
     }
   };
-</script>
 
+  // 移除舊監聽→只綁一次
+  {
+    const old = document.getElementById('btnSubmit');
+    if (old) {
+      const nb = old.cloneNode(true);
+      old.parentNode.replaceChild(nb, old);
+      nb.addEventListener('click', (ev)=>{ ev.preventDefault(); window.submitPost(); });
+    }
+  }
+</script>
 </body>
 </html>

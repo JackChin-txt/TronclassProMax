@@ -87,7 +87,8 @@
   const API = 'http://localhost:3000/api';
   const qs = (k)=> new URLSearchParams(location.search).get(k);
   const postId = qs('id');
-
+  window.API = API;
+  window.postId = postId;
   /* ===== 使用者/工具 ===== */
   function getCurrentUser(){ try{ return JSON.parse(localStorage.getItem('user') || '{}'); }catch{ return {}; } }
   function refreshUserBadge(){
@@ -291,7 +292,7 @@
   function defaultCutoffISO(){ const d=new Date(Date.now()+7*24*60*60*1000); const pad=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; }
   function toISOFromLocalInput(v){ if(!v) return null; try{ return new Date(v).toISOString(); }catch{ return null; } }
 
-  async function addComment(){
+  async function addComment_legacy(){
     const ta=document.getElementById('cContent');
     const status=document.getElementById('cStatus');
     const cutoffV=document.getElementById('cutoffInput').value;
@@ -329,9 +330,172 @@
     }
   }
 
-  document.getElementById('btnAdd').addEventListener('click', addComment);
+  //document.getElementById('btnAdd').addEventListener('click', addComment);
   (function initCutoff(){ document.getElementById('cutoffInput').value = defaultCutoffISO(); })();
   (async function init(){ if(!postId){ alert('缺少文章ID'); location.href='post.html'; return; } refreshUserBadge(); await loadPost(); await loadComments(); setInterval(loadComments, 10000); })();
 </script>
+
+<!-- ethers 載過就不用重複；沒載過就保留這行 -->
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+
+<script type="module">
+  import { initPost } from './js/chain/module/post.js';
+
+  // ===== 基本設定 =====
+  const API_URL =
+    (typeof window.API === 'string' && window.API) ? window.API :
+    ((window.API_BASE || 'http://localhost:3000') + '/api');
+
+  const POST_CID = window.postId || new URLSearchParams(location.search).get('id');
+
+  // ===== 小工具 =====
+  const setStatus = (msg, ok=false)=>{
+    const el = document.getElementById('cStatus');
+    if (!el) return;
+    el.textContent = msg || '';
+    el.className = ok ? 'meta' : (msg ? 'warn' : 'meta');
+  };
+
+  const getIface    = (x)=> (x?.interface || x?.contract?.interface || x?.abi || null);
+  const getContract = (x)=> (x?.instance ? x.instance() : (x?.contract || x));
+
+  async function logTx(label, txp){
+    const tx = await txp;
+    console.groupCollapsed(`🧾 ${label} sent`); console.log('hash:', tx.hash); console.groupEnd();
+    const rc = await tx.wait();
+    console.groupCollapsed(`✅ ${label} mined`); console.log('block:', rc.blockNumber); console.groupEnd();
+    return rc;
+  }
+
+  async function getPostContract(){
+    if (!window.ethereum) throw new Error('找不到錢包（window.ethereum）');
+    const provider = new ethers.providers.Web3Provider(window.ethereum);
+    await provider.send('eth_requestAccounts', []);
+    let net = await provider.getNetwork();
+    if (+net.chainId !== 31337){
+      await window.ethereum.request({ method:'wallet_switchEthereumChain', params:[{ chainId:'0x7a69' }] });
+    }
+    const addrs = await fetch('./js/chain/addresses.json').then(r=>r.json());
+    const code  = await provider.getCode(addrs.PostManager);
+    if (!code || code === '0x') throw new Error('PostManager 未部署或位址錯誤；請重佈署並更新 addresses.json');
+    const post  = await initPost({ provider, signer: provider.getSigner(), address: addrs.PostManager });
+    const c     = getContract(post);
+    const iface = getIface(c);
+    return { provider, contract: c, iface };
+  }
+
+  // 找函式（大小寫不敏感）
+  function findFn(iface, preferList){
+    const keys = Object.keys(iface?.functions || {});
+    const lower = keys.map(k=>[k, k.toLowerCase()]);
+    for (const want of preferList){
+      const idx = lower.findIndex(([k,kl])=> kl === want.toLowerCase());
+      if (idx >= 0) return keys[idx];
+    }
+    return null;
+  }
+
+  // ===== 新增留言主流程（DB → 鏈上）=====
+  window.addComment = async function addComment(){
+    if (window.__addingComment) return;
+    window.__addingComment = true;
+    const btn = document.getElementById('btnAdd');
+    btn && (btn.disabled = true);
+
+    const ta  = document.getElementById('cContent');
+    const txt = (ta?.value || '').trim();
+    const cutoffV = document.getElementById('cutoffInput')?.value || '';
+    if (!txt){ setStatus('請輸入內容'); window.__addingComment=false; btn&&(btn.disabled=false); return; }
+
+    // 樂觀 UI（沿用你頁面已定義的工具）
+    const nextReplyId = await (window.getNextReplyId?.().catch?.(()=>1) ?? Promise.resolve(1));
+    const u = (window.getCurrentUser?.() || {});
+    const pendingItem = {
+      tempId:'tmp_'+Date.now(), postId: POST_CID,
+      authorName: u.username || u.name || '我',
+      content: txt, createdAt: new Date().toISOString(),
+      cutoffTime: (cutoffV ? new Date(cutoffV).toISOString() : null),
+      replyId: nextReplyId
+    };
+    window.addPending?.(pendingItem);
+    document.getElementById('cEmpty') && (document.getElementById('cEmpty').style.display='none');
+    window.renderComment && document.getElementById('cList')?.prepend(
+      window.renderComment(pendingItem, { pending:true, indexForDisplay: nextReplyId })
+    );
+
+    setStatus('送出中…'); ta && (ta.value='');
+
+    try{
+      // 1) 後端建立留言（帶 cutoff 與 replyId）
+      const res = await fetch(`${API_URL}/comments`, {
+        method:'POST',
+        headers:(window.authHeaders?.() || { 'Content-Type':'application/json' }),
+        body: JSON.stringify({ postId: POST_CID, content: txt, cutoffTime: (cutoffV?new Date(cutoffV).toISOString():null), replyId: nextReplyId })
+      });
+      let data=null, text=''; try{ data=await res.clone().json(); }catch{} try{ text=await res.text(); }catch{}
+      let commentCID = data?._id || data?.comment?._id || data?.result?._id;
+
+      // 後援：回查同文留言列表，找內容一致那筆
+      if (!res.ok || !commentCID){
+        const r2 = await fetch(`${API_URL}/comments/post/${encodeURIComponent(POST_CID)}`, { headers: window.authHeaders?.() || {} });
+        if (r2.ok){
+          const j = await r2.json().catch(()=>({comments:[]}));
+          const arr = Array.isArray(j?.comments) ? j.comments : (Array.isArray(j)?j:[]);
+          const me  = String((window.currentUserId?.() || ''));
+          const f   = arr.find(c => c && c.content===txt && String(window.getCommentAuthorId?.(c) || c.authorId || '')===me);
+          if (f) commentCID = f._id || f.id;
+        }
+      }
+      if (!commentCID) throw new Error(data?.message || text || '建立留言失敗');
+
+      // 2) 鏈上：優先使用 ReplyPostByCID(string,string) → 次選 ReplyPostByID(uint256,string)
+      setStatus('鏈上寫入中…');
+      const { contract, iface } = await getPostContract();
+
+      // 找函式
+      const sigByCID = findFn(iface, ['replypostbycid(string,string)']);
+      const sigByID  = findFn(iface, ['replypostbyid(uint256,string)']);
+      const sigView  = findFn(iface, ['getcidtopostid(string)']); // 你的 view
+
+      if (sigByCID){
+        // 直接吃兩個 CID
+        await logTx('ReplyPostByCID', contract[sigByCID](String(POST_CID), String(commentCID)));
+      } else if (sigByID && sigView){
+        // 查 postId → 以 postId 回文
+        const idBN = await contract[sigView](String(POST_CID)); // 不存在會在合約端 revert
+        const id   = ethers.BigNumber.from(idBN).toString();
+        await logTx('ReplyPostByID', contract[sigByID](id, String(commentCID)));
+      } else {
+        throw new Error('合約缺少 ReplyPostByCID/ReplyPostByID 或 ABI 未更新，請重新編譯並更新前端 ABI。');
+      }
+
+      setStatus('已送出！', true);
+      setTimeout(()=> setStatus(''), 900);
+      window.reconcileAfterPost && (await window.reconcileAfterPost(txt));
+    }catch(e){
+      const msg = (e?.error?.message || e?.message || '').toLowerCase();
+      if (msg.includes('post dose not exist') || msg.includes('post does not exist') || msg.includes('post not found')){
+        setStatus('鏈上找不到這篇貼文（可能 mapping 尚未寫入或 ABI 未更新）。請稍後重試。');
+      }else{
+        setStatus(e.message || '送出失敗（已暫存於本機）');
+      }
+      console.error(e);
+    }finally{
+      window.__addingComment=false;
+      btn && (btn.disabled=false);
+    }
+  };
+
+  // 只綁一次按鈕（移除舊監聽）
+  {
+    const oldBtn = document.getElementById('btnAdd');
+    if (oldBtn){
+      const nb = oldBtn.cloneNode(true);
+      oldBtn.parentNode.replaceChild(nb, oldBtn);
+      nb.addEventListener('click', window.addComment);
+    }
+  }
+</script>
+
 </body>
 </html>

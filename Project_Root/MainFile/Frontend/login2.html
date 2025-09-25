@@ -167,7 +167,7 @@
       const serverName = (data.username ?? "").trim();
       const serverRole = data.role || "student";
 
-      // 🔒 嚴格比對：名字必須與 serverName 完全一致（必要時可改成不分大小寫）
+      //  嚴格比對：名字必須與 serverName 完全一致（必要時可改成不分大小寫）
       if (enteredName !== serverName) {
         localStorage.removeItem("token");
         localStorage.removeItem("user");

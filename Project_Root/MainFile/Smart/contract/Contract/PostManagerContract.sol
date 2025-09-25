@@ -164,6 +164,27 @@ contract PostManager
         return CIDtoPostID[CID];
     }//轉換CID成PostID 輸入鍊下ID取的鍊上ID
 
+    function ReplyPostByCID(string calldata postCID, string calldata replyCID) external 
+    {
+        uint256 pid = CIDtoPostID[postCID];
+        require(pid != 0, "post not found");
+        _replyByPostId(pid, replyCID);
+    }
+
+    function ReplyPostByID(uint256 postID, string calldata replyCID) external 
+    {
+        require(PostList[postID].TimeStamp != 0, "post not found");
+        _replyByPostId(postID, replyCID);
+    }
+
+    function _replyByPostId(uint256 postID, string calldata replyCID) internal 
+    {
+        uint256 RID = nextReplyID[postID]++;
+        // 這裡的 CID 應該存「回文的 CID」（comment 的 _id），不是 post 的 CID
+        replies[postID][RID] = Reply(msg.sender, replyCID, block.timestamp, 0);
+        emit PostReply(postID, RID, msg.sender, replyCID);
+    }
+
     function getPostInfo(uint256 postID)external view returns(address author, string memory CID, uint256 time)
     {
         require(PostList[postID].TimeStamp != 0 ,"post not found / post have been deleted.");
@@ -201,4 +222,6 @@ contract PostManager
         else
             return false;
     }//輸入鍊下ID 回傳貼文是否存在
+
+    
 }
