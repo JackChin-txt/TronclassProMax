@@ -341,23 +341,24 @@
 <script type="module">
   import { initPost } from './js/chain/module/post.js';
 
-  // ===== 基本設定 =====
   const API_URL =
     (typeof window.API === 'string' && window.API) ? window.API :
     ((window.API_BASE || 'http://localhost:3000') + '/api');
 
-  const POST_CID = window.postId || new URLSearchParams(location.search).get('id');
+  const POST_ID = window.postId || new URLSearchParams(location.search).get('id');
+  const MAP_KEY = 'chainPostIdByCid';
 
-  // ===== 小工具 =====
+  // 工具
   const setStatus = (msg, ok=false)=>{
     const el = document.getElementById('cStatus');
-    if (!el) return;
-    el.textContent = msg || '';
-    el.className = ok ? 'meta' : (msg ? 'warn' : 'meta');
+    if (el){ el.textContent = msg || ''; el.className = ok ? 'meta' : (msg ? 'warn' : 'meta'); }
   };
-
-  const getIface    = (x)=> (x?.interface || x?.contract?.interface || x?.abi || null);
-  const getContract = (x)=> (x?.instance ? x.instance() : (x?.contract || x));
+  const getIface    = (p)=> (p?.interface || p?.contract?.interface || null);
+  const getContract = (p)=> (p?.contract || p);
+  const toWire = (t, v)=> t==='bytes32' ? ethers.utils.id(String(v))
+                       : t?.startsWith('uint') ? ethers.BigNumber.from(String(v))
+                       : String(v);
+  const loadMap = ()=> { try{ return JSON.parse(localStorage.getItem(MAP_KEY)||'{}'); }catch{ return {}; } };
 
   async function logTx(label, txp){
     const tx = await txp;
@@ -368,125 +369,162 @@
   }
 
   async function getPostContract(){
-    if (!window.ethereum) throw new Error('找不到錢包（window.ethereum）');
     const provider = new ethers.providers.Web3Provider(window.ethereum);
     await provider.send('eth_requestAccounts', []);
     let net = await provider.getNetwork();
     if (+net.chainId !== 31337){
       await window.ethereum.request({ method:'wallet_switchEthereumChain', params:[{ chainId:'0x7a69' }] });
+      net = await provider.getNetwork();
     }
     const addrs = await fetch('./js/chain/addresses.json').then(r=>r.json());
     const code  = await provider.getCode(addrs.PostManager);
     if (!code || code === '0x') throw new Error('PostManager 未部署或位址錯誤；請重佈署並更新 addresses.json');
-    const post  = await initPost({ provider, signer: provider.getSigner(), address: addrs.PostManager });
-    const c     = getContract(post);
-    const iface = getIface(c);
-    return { provider, contract: c, iface };
+    const signer = provider.getSigner();
+    const post   = await initPost({ provider, signer, address: addrs.PostManager });
+    return { post, provider };
   }
 
-  // 找函式（大小寫不敏感）
-  function findFn(iface, preferList){
-    const keys = Object.keys(iface?.functions || {});
-    const lower = keys.map(k=>[k, k.toLowerCase()]);
-    for (const want of preferList){
-      const idx = lower.findIndex(([k,kl])=> kl === want.toLowerCase());
-      if (idx >= 0) return keys[idx];
+  function pickReplySig(post){
+    const iface = getIface(post);
+    const fns = Object.keys(iface?.functions || {}).filter(k=>k.startsWith('replyPost('));
+    if (!fns.length) return null;
+    const two = fns.find(k=>iface.functions[k].inputs.length===2);
+    return two || fns[0];
+  }
+
+  // 從映射 + hasPost 嘗試決定「鏈上 postId」形態
+  async function resolveOnchainPostId(post, cid){
+    const entry = loadMap()[cid] || null;       // {type,value}
+    const c = getContract(post);
+    const iface = getIface(post);
+
+    // 依序嘗試的候選
+    const candidates = [];
+    if (entry){
+      if (entry.type==='uint')    candidates.push({kind:'uint',    value:ethers.BigNumber.from(entry.value)});
+      if (entry.type==='bytes32') candidates.push({kind:'bytes32', value:entry.value});
+      if (entry.type==='string')  candidates.push({kind:'string',  value:entry.value});
     }
-    return null;
+    candidates.push({kind:'string',  value:String(cid)});
+    candidates.push({kind:'bytes32', value:ethers.utils.id(String(cid))});
+
+    // 用 hasPost 驗證（若沒有 hasPost，就回第一個候選讓交易自己驗）
+    for (const cand of candidates){
+      try{
+        if (typeof post?.hasPost === 'function'){
+          const ok1 = await post.hasPost(cand.kind==='bytes32' ? cand.value : String(cand.value)).catch(()=>undefined);
+          if (ok1 === true) return cand;
+        }
+        if (iface){
+          if (cand.kind==='string'  && iface.functions['hasPost(string)']  && await c['hasPost(string)'](cand.value))  return cand;
+          if (cand.kind==='bytes32' && iface.functions['hasPost(bytes32)'] && await c['hasPost(bytes32)'](cand.value)) return cand;
+          if (cand.kind==='uint'    && iface.functions['hasPost(uint256)'] && await c['hasPost(uint256)'](cand.value)) return cand;
+        }
+      }catch{/* ignore and try next */}
+    }
+    return candidates[0] || null;
   }
 
-  // ===== 新增留言主流程（DB → 鏈上）=====
+  // 主流程
   window.addComment = async function addComment(){
+    console.log('%c[addComment] CALLED', 'color:#09f;font-weight:700;');
+
     if (window.__addingComment) return;
     window.__addingComment = true;
-    const btn = document.getElementById('btnAdd');
-    btn && (btn.disabled = true);
+    const sendBtn = document.getElementById('btnAdd');
+    sendBtn && (sendBtn.disabled = true);
 
-    const ta  = document.getElementById('cContent');
-    const txt = (ta?.value || '').trim();
-    const cutoffV = document.getElementById('cutoffInput')?.value || '';
-    if (!txt){ setStatus('請輸入內容'); window.__addingComment=false; btn&&(btn.disabled=false); return; }
+    const ta = document.getElementById('cContent');
+    const content = (ta?.value || '').trim();
+    if (!content){
+      setStatus('請輸入內容'); window.__addingComment=false; sendBtn&&(sendBtn.disabled=false); return;
+    }
 
-    // 樂觀 UI（沿用你頁面已定義的工具）
-    const nextReplyId = await (window.getNextReplyId?.().catch?.(()=>1) ?? Promise.resolve(1));
-    const u = (window.getCurrentUser?.() || {});
-    const pendingItem = {
-      tempId:'tmp_'+Date.now(), postId: POST_CID,
-      authorName: u.username || u.name || '我',
-      content: txt, createdAt: new Date().toISOString(),
-      cutoffTime: (cutoffV ? new Date(cutoffV).toISOString() : null),
-      replyId: nextReplyId
-    };
-    window.addPending?.(pendingItem);
-    document.getElementById('cEmpty') && (document.getElementById('cEmpty').style.display='none');
-    window.renderComment && document.getElementById('cList')?.prepend(
-      window.renderComment(pendingItem, { pending:true, indexForDisplay: nextReplyId })
-    );
-
+    //（你原本的樂觀 UI 可保留；此處省略，只顯示狀態）
     setStatus('送出中…'); ta && (ta.value='');
 
     try{
-      // 1) 後端建立留言（帶 cutoff 與 replyId）
-      const res = await fetch(`${API_URL}/comments`, {
+      // 1) 後端建立留言
+      const res  = await fetch(`${API_URL}/comments`, {
         method:'POST',
         headers:(window.authHeaders?.() || { 'Content-Type':'application/json' }),
-        body: JSON.stringify({ postId: POST_CID, content: txt, cutoffTime: (cutoffV?new Date(cutoffV).toISOString():null), replyId: nextReplyId })
+        body:JSON.stringify({ postId: POST_ID, content })
       });
       let data=null, text=''; try{ data=await res.clone().json(); }catch{} try{ text=await res.text(); }catch{}
-      let commentCID = data?._id || data?.comment?._id || data?.result?._id;
+      let cid = data?._id || data?.comment?._id || data?.result?._id;
 
-      // 後援：回查同文留言列表，找內容一致那筆
-      if (!res.ok || !commentCID){
-        const r2 = await fetch(`${API_URL}/comments/post/${encodeURIComponent(POST_CID)}`, { headers: window.authHeaders?.() || {} });
+      // 拿不到就回查
+      if (!res.ok || !cid){
+        const r2 = await fetch(`${API_URL}/comments/post/${encodeURIComponent(POST_ID)}`, { headers: window.authHeaders?.() || {} });
         if (r2.ok){
-          const j = await r2.json().catch(()=>({comments:[]}));
+          const j = await r2.json().catch(()=>([]));
           const arr = Array.isArray(j?.comments) ? j.comments : (Array.isArray(j)?j:[]);
           const me  = String((window.currentUserId?.() || ''));
-          const f   = arr.find(c => c && c.content===txt && String(window.getCommentAuthorId?.(c) || c.authorId || '')===me);
-          if (f) commentCID = f._id || f.id;
+          const f   = arr.find(c => c && c.content===content && String(window.getCommentAuthorId?.(c) || c.authorId || '')===me);
+          if (f) cid = f._id || f.id;
         }
       }
-      if (!commentCID) throw new Error(data?.message || text || '建立留言失敗');
+      if (!cid) throw new Error(data?.message || text || 'Failed to add comment');
 
-      // 2) 鏈上：優先使用 ReplyPostByCID(string,string) → 次選 ReplyPostByID(uint256,string)
-      setStatus('鏈上寫入中…');
-      const { contract, iface } = await getPostContract();
+      // 2) 取合約 → 解析「鏈上 postId」形式
+      const { post } = await getPostContract();
+      const resolved = await resolveOnchainPostId(post, POST_ID);
+      if (!resolved){
+        throw new Error('無法解析鏈上的貼文 ID 形式，請稍後再試');
+      }
+      console.log('[onchain postId resolved]', resolved);
 
-      // 找函式
-      const sigByCID = findFn(iface, ['replypostbycid(string,string)']);
-      const sigByID  = findFn(iface, ['replypostbyid(uint256,string)']);
-      const sigView  = findFn(iface, ['getcidtopostid(string)']); // 你的 view
+      // 3) 呼叫 replyPost（自動對齊參數型別）
+      const sig = pickReplySig(post);
+      if (sig){
+        const c    = getContract(post);
+        const frag = c.interface.getFunction(sig);
+        const ins  = frag.inputs.map(i=>i.type);
+        const a0   = ins[0]; // postId
+        const args = (ins.length===2)
+          ? [ toWire(a0, resolved.kind==='bytes32' ? resolved.value : (a0==='bytes32'?ethers.utils.id(String(resolved.value)):resolved.value)),
+              toWire(ins[1], cid) ]
+          : [ toWire(ins[0], cid) ];
 
-      if (sigByCID){
-        // 直接吃兩個 CID
-        await logTx('ReplyPostByCID', contract[sigByCID](String(POST_CID), String(commentCID)));
-      } else if (sigByID && sigView){
-        // 查 postId → 以 postId 回文
-        const idBN = await contract[sigView](String(POST_CID)); // 不存在會在合約端 revert
-        const id   = ethers.BigNumber.from(idBN).toString();
-        await logTx('ReplyPostByID', contract[sigByID](id, String(commentCID)));
-      } else {
-        throw new Error('合約缺少 ReplyPostByCID/ReplyPostByID 或 ABI 未更新，請重新編譯並更新前端 ABI。');
+        console.log('[replyPost] call', sig, 'with', args);
+        await logTx('ReplyPost', c[sig](...args));
+      }else{
+        if (typeof post.replyPost !== 'function') throw new Error('找不到 replyPost；請確認 initPost/ABI。');
+        const need = Number(post.replyPost.length || 1);
+
+        // 先用解析出的型別送；失敗再嘗試 bytes32 字串版
+        try{
+          const p0 = resolved.kind==='bytes32' ? resolved.value : String(resolved.value);
+          const args = need>=2 ? [p0, String(cid)] : [String(cid)];
+          const ret  = await post.replyPost(...args);
+          const hash = ret?.hash || ret?.tx || ret?.transactionHash;
+          hash && console.log('🧾 ReplyPost sent (wrapper):', hash);
+          if (ret?.wait){ const rc = await ret.wait(); console.log('✅ ReplyPost mined (wrapper): block', rc.blockNumber); }
+        }catch(e1){
+          const p0 = ethers.utils.id(String(resolved.value));
+          const args = need>=2 ? [p0, String(cid)] : [String(cid)];
+          const ret  = await post.replyPost(...args);
+          const hash = ret?.hash || ret?.tx || ret?.transactionHash;
+          hash && console.log('🧾 ReplyPost sent (wrapper b32):', hash);
+          if (ret?.wait){ const rc = await ret.wait(); console.log('✅ ReplyPost mined (wrapper b32): block', rc.blockNumber); }
+        }
       }
 
-      setStatus('已送出！', true);
-      setTimeout(()=> setStatus(''), 900);
-      window.reconcileAfterPost && (await window.reconcileAfterPost(txt));
+      setStatus('已送出！', true); setTimeout(()=>setStatus(''), 900);
     }catch(e){
       const msg = (e?.error?.message || e?.message || '').toLowerCase();
-      if (msg.includes('post dose not exist') || msg.includes('post does not exist') || msg.includes('post not found')){
-        setStatus('鏈上找不到這篇貼文（可能 mapping 尚未寫入或 ABI 未更新）。請稍後重試。');
+      if (msg.includes('post dose not exist') || msg.includes('post does not exist')){
+        setStatus('鏈上找不到這篇貼文（多半是用錯 ID 形式或建立交易剛完成）。請稍候再試或重新整理。');
       }else{
-        setStatus(e.message || '送出失敗（已暫存於本機）');
+        setStatus(e.message || '網路異常（已暫存於本機）');
       }
       console.error(e);
     }finally{
-      window.__addingComment=false;
-      btn && (btn.disabled=false);
+      window.__addingComment=false; sendBtn&&(sendBtn.disabled=false);
     }
   };
 
-  // 只綁一次按鈕（移除舊監聽）
+  // 只綁一次按鈕
   {
     const oldBtn = document.getElementById('btnAdd');
     if (oldBtn){
@@ -496,6 +534,5 @@
     }
   }
 </script>
-
 </body>
 </html>
