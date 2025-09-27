@@ -5,84 +5,171 @@
 <title>商店 / 點數兌換</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <style>
-  :root{--bg:#0b0f19;--card:#121826;--card-2:#0f172a;--muted:#9aa4b2;--text:#e5e7eb;--border:#1f2937;--shadow:0 10px 30px rgba(0,0,0,.35);--radius:14px;--primary:#4caf50;--primary-hover:#45a049;--accent:#3b82f6}
-  *{box-sizing:border-box}
-  body{font-family:Arial,"Microsoft JhengHei",sans-serif;margin:0;min-height:100vh;color:var(--text);
-       background:radial-gradient(1200px 600px at 20% -10%,#12233f 0%,transparent 60%),radial-gradient(900px 600px at 100% 0%,#1a2638 0%,transparent 60%),var(--bg)}
-  .nav{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:12px;padding:16px 20px;background:rgba(9,12,20,.65);backdrop-filter:blur(6px);border-bottom:1px solid var(--border)}
-  .nav h1{font-size:20px;margin:0}.nav .spacer{flex:1}
-  .btn{padding:10px 14px;border:1px solid #273041;border-radius:10px;background:var(--card-2);color:var(--text);cursor:pointer;transition:background .15s ease,transform .05s ease}
-  .btn:active{transform:translateY(1px)} .btn.primary{background:var(--primary);border-color:transparent}
-  .btn.primary:hover{background:var(--primary-hover)} .btn.link{background:transparent;border-color:transparent;color:#93c5fd}
-  .btn.link:hover{text-decoration:underline}
-  .wrap{max-width:980px;margin:24px auto;padding:0 16px}
-  .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow)}
-  .balance{padding:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
-  .item{padding:16px}
-  .item h3{margin:0 0 6px;font-size:18px}
-  .muted{color:var(--muted);font-size:14px}
-  .price{font-weight:700}
+  :root{--bg:#0b0f19;--card:#121826;--card2:#0f172a;--muted:#9aa4b2;--text:#e5e7eb;--border:#1f2937;--shadow:0 10px 30px rgba(0,0,0,.35);--r:14px;--ok:#22c55e}
+  *{box-sizing:border-box} body{margin:0;color:var(--text);font-family:Arial,"Microsoft JhengHei",sans-serif;background:
+    radial-gradient(1200px 600px at 20% -10%,#12233f 0%,transparent 60%),
+    radial-gradient(900px 600px at 100% 0%,#1a2638 0%,transparent 60%),var(--bg)}
+  .nav{position:sticky;top:0;display:flex;gap:10px;align-items:center;padding:14px 16px;background:rgba(9,12,20,.65);backdrop-filter:blur(6px);border-bottom:1px solid var(--border);z-index:5}
+  .nav h1{font-size:18px;margin:0}.sp{flex:1}
+  .btn{padding:8px 12px;border:1px solid var(--border);background:var(--card2);color:var(--text);border-radius:10px;cursor:pointer}
+  .btn.primary{background:var(--ok);border-color:transparent}
+  .wrap{max-width:1000px;margin:20px auto;padding:0 16px}
+  .pill{padding:4px 8px;border:1px solid #273041;border-radius:999px;background:#0f172a;color:#cbd5e1;font-size:12px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);margin-bottom:16px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;padding:12px}
+  .item{padding:14px}
+  .thumb{height:120px;background:#0f172a;border:1px solid #273041;border-radius:10px;margin-bottom:8px}
+  .muted{color:#9aa4b2;font-size:13px}
+  .row{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-top:1px solid #273041}
+  .balance{margin:10px;padding:10px;border:1px dashed #334155;border-radius:10px;background:#0b1324}
 </style>
 </head>
 <body>
   <div class="nav">
-    <h1>商店 / 點數兌換</h1>
-    <div class="spacer"></div>
-    <button class="btn link" onclick="location.href='post.html'">← 返回文章清單</button>
-    <button class="btn" onclick="logout()">登出</button>
+    <h1>商店</h1>
+    <div class="sp"></div>
+    <span id="who" class="pill">未登入</span>
+    <button class="btn" onclick="location.href='post.html'">← 回列表</button>
   </div>
 
   <div class="wrap">
-    <div class="card balance">
-      <div>目前點數餘額：<b id="bal">--</b></div>
-      <button class="btn" onclick="refreshBalance()">刷新</button>
+    <div class="card">
+      <div class="balance" id="balance">目前點數：0</div>
+      <div class="row">
+        <span class="muted" id="apiInfo">嘗試偵測後端獎品 API…</span>
+        <div style="display:flex;gap:8px">
+          <button class="btn" id="btnGive">+2000 測試點數</button>
+          <button class="btn" id="btnClear">清空點數</button>
+        </div>
+      </div>
+      <div class="grid" id="grid"></div>
     </div>
 
-    <div class="grid" id="storeGrid"></div>
+    <div class="card">
+      <div class="row" style="border-top:none"><b>我的兌換紀錄</b><button class="btn" id="btnLoad">載入</button></div>
+      <div id="history" style="padding:12px" class="muted">尚未載入。</div>
+    </div>
   </div>
 
 <script>
+  const API='http://localhost:3000/api';
+
+  function authHeaders(){
+    const t=localStorage.getItem('token')||localStorage.getItem('authToken');
+    return t?{'Content-Type':'application/json','Authorization':'Bearer '+t}:{'Content-Type':'application/json'};
+  }
+  function getUser(){ try{return JSON.parse(localStorage.getItem('user')||'')}catch{return null} }
+  function esc(s){return String(s??'').replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]))}
+
+  // points ledger
   const LEDGER_KEY='pointsLedger';
-  function getLedger(){try{return JSON.parse(localStorage.getItem(LEDGER_KEY)||'{}')}catch{return{}}}
-  function setLedger(o){localStorage.setItem(LEDGER_KEY,JSON.stringify(o||{}))}
-  function getUser(){try{return JSON.parse(localStorage.getItem('user')||'{}')}catch{return{}}}
-  function currentUserId(){const u=getUser();return String(u._id||u.id||'')}
-  function getBalance(){const l=getLedger();return Number(l[currentUserId()]||0)}
-  function addPoints(delta){const l=getLedger();const id=currentUserId();l[id]=(Number(l[id]||0)+Number(delta||0))|0;setLedger(l)}
+  function Lget(){ try{return JSON.parse(localStorage.getItem(LEDGER_KEY)||'{}')}catch{return{}} }
+  function Lset(m){ localStorage.setItem(LEDGER_KEY, JSON.stringify(m||{})); }
+  function addPoints(uid,delta){ if(!uid)return; const L=Lget(); L[uid]=Math.max(0, Number(L[uid]||0)+Number(delta||0)); Lset(L); }
+  function getPoints(uid){ return Number(Lget()[uid]||0); }
+  function ensureInitialPoints(min=5000){ const u=getUser(); if(!u) return; const cur=getPoints(u._id||u.id||''); if(cur<min) addPoints(u._id||u.id||'', min-cur); }
 
-  function logout(){localStorage.removeItem('token');localStorage.removeItem('user');location.href='login2.html'}
+  // reward history (local)
+  const REDEEM_KEY='redeemHistory';
+  function Hget(){ try{return JSON.parse(localStorage.getItem(REDEEM_KEY)||'{}')}catch{return{}} }
+  function Hset(m){ localStorage.setItem(REDEEM_KEY, JSON.stringify(m||{})); }
+  function Hpush(uid,rec){ const m=Hget(); if(!m[uid]) m[uid]=[]; m[uid].unshift(rec); Hset(m); }
 
-  async function refreshBalance(){document.getElementById('bal').textContent=getBalance()}
+  function refreshUserUI(){
+    const u=getUser();
+    document.getElementById('who').textContent = u? `👤 ${u.username||u.name||'使用者'}（id:${u._id||u.id||''}）`:'未登入';
+    document.getElementById('balance').textContent = `目前點數：${u?getPoints(u._id||u.id||''):0}`;
+  }
 
-  // 假資料；正式改成打你後端的 /api/rewards 清單
-  const items=[
-    { id:'coupon-50', name:'作業加分券 (50)', cost:50, desc:'期末成績 +1（示例）' },
-    { id:'badge-30',  name:'榮譽徽章 (30)',   cost:30, desc:'個人頁徽章（示例）' },
-    { id:'notify-10', name:'老師提醒券 (10)', cost:10, desc:'請老師寄信提醒（示例）' },
+  // 後端 rewards 探測 + 取得
+  const FALLBACK_ITEMS = [
+    { id:'coffee', name:'咖啡券', desc:'任選中杯一杯', cost:300 },
+    { id:'movie', name:'電影折扣券', desc:'電影票折 50 元', cost:500 },
+    { id:'gift',  name:'神秘小禮物', desc:'隨機周邊', cost:800 },
+    { id:'coupon',name:'全站折扣碼', desc:'下次消費折 100 元', cost:1000 },
+    { id:'vip',   name:'VIP 徽章', desc:'名稱旁顯示一週', cost:900 },
+    { id:'mentor',name:'助教 30min', desc:'線上或面談', cost:2500 }
   ];
+  function pickArr(d){ if(Array.isArray(d))return d; if(Array.isArray(d?.rewards))return d.rewards; if(Array.isArray(d?.items))return d.items; if(Array.isArray(d?.data))return d.data; if(Array.isArray(d?.data?.items))return d.data.items; if(Array.isArray(d?.data?.rewards))return d.data.rewards; return []; }
 
-  function renderStore(){
-    const grid=document.getElementById('storeGrid'); grid.innerHTML='';
+  async function fetchRewards(){
+    const info=document.getElementById('apiInfo');
+    try{
+      const r=await fetch(`${API}/rewards`,{headers:authHeaders()});
+      if(!r.ok){ info.textContent='未偵測到 /api/rewards，用本地商品'; return FALLBACK_ITEMS; }
+      info.textContent='已使用 /api/rewards';
+      const t=await r.text(); let d; try{d=JSON.parse(t)}catch{d=t}
+      const arr=pickArr(d).map(x=>({ id:x._id||x.id, name:x.name, desc:x.description, cost:x.pointsRequired||x.cost||0, image:x.image||null }));
+      return arr.length?arr:FALLBACK_ITEMS;
+    }catch(e){ info.textContent='呼叫 /api/rewards 失敗，用本地商品'; return FALLBACK_ITEMS; }
+  }
+
+  async function redeemServerFirst(id){
+    const u=getUser(); if(!u) throw new Error('NO_USER');
+    const r=await fetch(`${API}/rewards/${encodeURIComponent(id)}/redeem`,{method:'POST',headers:authHeaders()});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok || d.success===false) throw new Error(d.message||`兌換失敗（${r.status}）`);
+    return d;
+  }
+
+  async function renderStore(){
+    const u=getUser(); const uid=u? (u._id||u.id||'') : '';
+    const bal = getPoints(uid);
+    const grid=document.getElementById('grid'); grid.innerHTML=`<div class="muted" style="grid-column:1/-1">載入中…</div>`;
+    const items=await fetchRewards().catch(()=>FALLBACK_ITEMS);
+    grid.innerHTML='';
     items.forEach(it=>{
-      const div=document.createElement('div'); div.className='card item';
-      div.innerHTML=`
-        <h3>${it.name}</h3>
-        <div class="muted">${it.desc||''}</div>
-        <div style="margin-top:8px">價格：<span class="price">${it.cost}</span> 分</div>
-        <div style="margin-top:12px"><button class="btn primary">兌換</button></div>
+      const can = bal >= (it.cost||0);
+      const card=document.createElement('div'); card.className='item';
+      card.innerHTML=`
+        <div class="thumb">${it.image?`<img src="${esc(it.image)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:10px">`:''}</div>
+        <div><b>${esc(it.name||'(未命名)')}</b></div>
+        <div class="muted">${esc(it.desc||'')}</div>
+        <div style="margin-top:6px">價格：<b>${it.cost||0}</b> 分</div>
+        <div style="margin-top:8px"><button class="btn ${can?'primary':''}" ${can?'':'disabled'} data-id="${it.id}">${can?'兌換':'點數不足'}</button></div>
+        <div class="muted" id="tip-${it.id}"></div>
       `;
-      div.querySelector('button').addEventListener('click',()=>{
-        if(getBalance()<it.cost){alert('點數不足');return}
-        addPoints(-it.cost);
-        refreshBalance();
-        alert('兌換成功！（前端扣點）');
-      });
-      grid.appendChild(div);
+      card.querySelector(`[data-id="${it.id}"]`).onclick = async ()=>{
+        const tip=document.getElementById(`tip-${it.id}`);
+        if(!uid){ tip.textContent='請先登入'; return; }
+        if(getPoints(uid) < (it.cost||0)){ tip.textContent='點數不足'; return; }
+        tip.textContent='兌換中…';
+        try{
+          await redeemServerFirst(it.id); // 優先走後端
+          addPoints(uid, -(it.cost||0));
+          Hpush(uid, { itemId:it.id, name:it.name, cost:it.cost||0, time:new Date().toISOString() });
+          tip.textContent='✅ 兌換成功（已扣點）';
+        }catch(e){
+          // 後端沒開/失敗 → 本地扣點也能測
+          addPoints(uid, -(it.cost||0));
+          Hpush(uid, { itemId:it.id, name:it.name, cost:it.cost||0, time:new Date().toISOString(), local:true });
+          tip.textContent='✅ 本地兌換完成（後端未啟用）';
+        }
+        refreshUserUI(); renderStore();
+      };
+      grid.appendChild(card);
     });
   }
 
-  (async function init(){renderStore();await refreshBalance()})();
+  function renderHistory(){
+    const u=getUser(); const uid=u? (u._id||u.id||'') : '';
+    const box=document.getElementById('history');
+    const list=(Hget()[uid]||[]);
+    if(!list.length){ box.textContent='目前沒有兌換紀錄。'; return; }
+    box.innerHTML=list.map(r=>`<div>• ${esc(r.name||r.itemId)}：-${r.cost} 分　<span class="muted">${new Date(r.time).toLocaleString()}${r.local?'（本地）':''}</span></div>`).join('');
+  }
+
+  document.getElementById('btnGive').onclick = ()=>{ const u=getUser(); if(!u)return alert('請先登入'); addPoints(u._id||u.id||'',2000); refreshUserUI(); renderStore(); };
+  document.getElementById('btnClear').onclick= ()=>{ const u=getUser(); if(!u)return; const id=u._id||u.id||''; addPoints(id, -getPoints(id)); refreshUserUI(); renderStore(); };
+  document.getElementById('btnLoad').onclick = renderHistory;
+
+  (async function init(){
+    const u=getUser();
+    if(!u) document.getElementById('who').textContent='未登入（仍可用本地測試）';
+    ensureInitialPoints(5000); // 可刪除：只為方便測試
+    refreshUserUI();
+    await renderStore();
+  })();
 </script>
 </body>
 </html>

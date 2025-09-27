@@ -11,11 +11,9 @@
     --accent:#2563eb;--accentText:#dbeafe;
   }
   *{box-sizing:border-box}
-  body{
-    font-family:Arial,"Microsoft JhengHei",sans-serif;margin:0;min-height:100vh;color:var(--text);
+  body{font-family:Arial,"Microsoft JhengHei",sans-serif;margin:0;min-height:100vh;color:var(--text);
     background:radial-gradient(1200px 600px at 20% -10%,#12233f 0%,transparent 60%),
-               radial-gradient(900px 600px at 100% 0%,#1a2638 0%,transparent 60%),var(--bg)
-  }
+               radial-gradient(900px 600px at 100% 0%,#1a2638 0%,transparent 60%),var(--bg)}
   .nav{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:12px;padding:16px 20px;
        background:rgba(9,12,20,.65);backdrop-filter:blur(6px);border-bottom:1px solid var(--border)}
   .nav h1{font-size:20px;margin:0}.nav .spacer{flex:1}
@@ -29,6 +27,10 @@
   .post h2{margin:0 0 8px;font-size:22px}
   .meta{font-size:13px;color:#cbd5e1}
   .content{margin-top:10px;white-space:pre-wrap}
+  .bestbox{margin:12px 20px 0 20px;border:1px solid #26477e;background:#0f172a;border-radius:12px;padding:12px}
+  .bestbox h3{margin:0 0 6px;font-size:14px;color:#bfdbfe;display:flex;align-items:center;gap:8px}
+  .bestbox .bestline{font-size:14px;color:#e5e7eb;white-space:pre-wrap}
+  .bestbox .small{font-size:12px;color:#a5b4fc}
   .newc{padding:16px;border-top:1px solid var(--border);display:grid;gap:10px}
   .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
   textarea{width:100%;background:#0f172a;color:var(--text);border:1px solid #273041;border-radius:8px;padding:10px}
@@ -42,16 +44,20 @@
   .badge{padding:2px 6px;border-radius:8px;background:var(--accent);color:var(--accentText);font-size:12px}
   .badge.gray{background:#374151;color:#e5e7eb}
   .txt{white-space:pre-wrap}
-  .actions{margin-top:8px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .actions{margin-top:8px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
   .like-btn.active{background:#1e293b}
-  .empty{text-align:center;padding:28px;color:var(--muted)}
+  .empty{text-align:center;padding:28px;color:#9aa4b2}
   .warn{color:#fca5a5;font-size:13px}
+  .select-tip{padding:12px 16px;border-top:1px dashed #273041;border-bottom:1px dashed #273041;background:#0f172a;color:#cbd5e1;display:block}
+  .chk-wrap{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid #273041;border-radius:8px;background:#0f172a}
+  .chk-best{width:18px;height:18px;cursor:pointer;accent-color:#22c55e;position:relative;z-index:2}
 </style>
 </head>
 <body>
   <div class="nav">
     <h1>文章留言</h1>
     <div class="spacer"></div>
+    <button class="btn" onclick="location.href='store.html'">前往商店</button>
     <span id="userBadge" class="badge-user">未登入</span>
     <button class="btn" onclick="location.href='post.html'">← 回清單</button>
     <button class="btn" id="btnLogin" onclick="location.href='login2.html'">登入</button>
@@ -64,6 +70,22 @@
         <h2 id="pTitle">(載入中…)</h2>
         <div class="meta" id="pMeta"></div>
         <div class="content" id="pContent"></div>
+
+        <!-- 最佳留言展示 -->
+        <div id="bestBox" class="bestbox" style="display:none;">
+          <h3>🏅 最佳留言</h3>
+          <div class="bestline" id="bestContent"></div>
+          <div class="small" id="bestMeta"></div>
+        </div>
+      </div>
+
+      <!-- 勾選 + 確認選擇 -->
+      <div id="bestToolbar" class="select-tip">
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+          <span>請在每則留言按「勾選」（一次只選 1 則），然後按</span>
+          <button class="btn primary" id="btnConfirmBest">確認選擇</button>
+          <span id="bestStatus" class="meta"></span>
+        </div>
       </div>
 
       <div class="newc">
@@ -88,7 +110,7 @@
   const qs = (k)=> new URLSearchParams(location.search).get(k);
   const postId = qs('id');
 
-  /* ===== 使用者/工具 ===== */
+  /* === 使用者 / 工具 === */
   function getCurrentUser(){ try{ return JSON.parse(localStorage.getItem('user') || '{}'); }catch{ return {}; } }
   function refreshUserBadge(){
     const u=getCurrentUser(); const has=!!(localStorage.getItem('token')||localStorage.getItem('authToken'));
@@ -98,13 +120,19 @@
   }
   function logout(){ localStorage.removeItem('token'); localStorage.removeItem('authToken'); localStorage.removeItem('user'); refreshUserBadge(); location.href='login2.html'; }
   function authHeaders(){ const t=localStorage.getItem('token')||localStorage.getItem('authToken'); return t?{'Content-Type':'application/json','Authorization':'Bearer '+t}:{'Content-Type':'application/json'}; }
-  function currentUserId(){ try{ const u=JSON.parse(localStorage.getItem('user')||'{}'); return String(u._id||u.id||''); }catch{ return ''; } }
   function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));}
   function timeAgo(iso){if(!iso)return'';const d=(Date.now()-new Date(iso))/1000;if(d<60)return`${Math.floor(d)} 秒前`;if(d<3600)return`${Math.floor(d/60)} 分鐘前`;if(d<86400)return`${Math.floor(d/3600)} 小時前`;return`${Math.floor(d/86400)} 天前`;}
   function fmt(dt){ try{ return new Date(dt).toLocaleString(); }catch{ return ''; } }
 
-  /* ===== Points Ledger（前端錢包）===== */
-  const LEDGER_KEY='pointsLedger'; // { [userId]: points }
+  /* === 最佳留言（本地儲存） === */
+  const BEST_KEY = 'bestReplyLocal'; // { [postId]: commentId }
+  function readBestLocal(){ try { return JSON.parse(localStorage.getItem(BEST_KEY) || '{}'); } catch { return {}; } }
+  function writeBestLocal(map){ localStorage.setItem(BEST_KEY, JSON.stringify(map || {})); }
+  function getBestLocal(pid){ const m = readBestLocal(); return m[pid] || null; }
+  function setBestLocal(pid, cid){ const m = readBestLocal(); if (cid) m[pid] = cid; else delete m[pid]; writeBestLocal(m); }
+
+  /* === Points Ledger（前端錢包） === */
+  const LEDGER_KEY='pointsLedger';
   function getLedger(){ try{ return JSON.parse(localStorage.getItem(LEDGER_KEY)||'{}'); }catch{ return {}; } }
   function setLedger(obj){ localStorage.setItem(LEDGER_KEY, JSON.stringify(obj||{})); }
   function addPoints(uid, delta){
@@ -114,7 +142,7 @@
     setLedger(l);
   }
 
-  /* ===== 本機暫存留言（refresh 後也看得到）===== */
+  /* === 本機暫存留言 === */
   const PENDING_KEY = pid => `pendingComments:${pid}`;
   function loadPending(){ try{ return JSON.parse(localStorage.getItem(PENDING_KEY(postId)) || '[]'); }catch{ return []; } }
   function savePending(list){ localStorage.setItem(PENDING_KEY(postId), JSON.stringify(list.slice(0,50))); }
@@ -128,20 +156,60 @@
     if(after.length!==list.length) savePending(after);
   }
 
-  /* ===== 文章 & 權限 ===== */
-  let POST_AUTHOR_ID = null;
-  function isPostAuthor(){ return POST_AUTHOR_ID && currentUserId() && POST_AUTHOR_ID === currentUserId(); }
+  /* === 文章 & 最佳留言展示 === */
+  let LAST_COMMENTS_CACHE = [];
+
   async function loadPost(){
     const res = await fetch(`${API}/posts/${encodeURIComponent(postId)}`);
     if(!res.ok) throw new Error('讀文章失敗');
     const p = await res.json();
-    POST_AUTHOR_ID = String(p.author?._id || p.author || '');
+
+    const authorName = String(p.author?.username || p.authorName || '').trim();
     document.getElementById('pTitle').textContent = p.title || '(無標題)';
-    document.getElementById('pMeta').textContent = `${p.author?.username||p.authorName||'匿名'} · ${timeAgo(p.createdAt)}`;
+    document.getElementById('pMeta').textContent = `${authorName || '匿名'} · ${timeAgo(p.createdAt)}`;
     document.getElementById('pContent').textContent = p.content||'';
+
+    const localBestId = getBestLocal(postId);
+    if (localBestId && LAST_COMMENTS_CACHE.length){
+      const hit = LAST_COMMENTS_CACHE.find(c => String(c._id||c.id) === String(localBestId));
+      if (hit) { hit.bestReply = true; renderBestBox(hit); return; }
+    }
+    renderBestFromPostShape(p);
   }
 
-  /* ===== 讀留言（/comments/post/:postId → 404 fallback ?postId=...）===== */
+  function renderBestBox(best){
+    const box = document.getElementById('bestBox');
+    const cEl = document.getElementById('bestContent');
+    const mEl = document.getElementById('bestMeta');
+    if(!best){ box.style.display='none'; cEl.textContent=''; mEl.textContent=''; return; }
+    const authorName = best.author?.username || best.authorName || '匿名';
+    const replyNo = (typeof best.replyId==='number') ? `#${best.replyId} · ` : '';
+    cEl.textContent = best.content || '';
+    mEl.textContent = `${replyNo}${authorName} · ${timeAgo(best.createdAt)}`;
+    box.style.display='';
+  }
+
+  function findBestFromComments(list){
+    let byFlag = list.find(x => x && x.bestReply === true);
+    if(byFlag) return byFlag;
+    return null;
+  }
+
+  function renderBestFromPostShape(p){
+    if(p && p.bestReply && typeof p.bestReply === 'object'){
+      renderBestBox(p.bestReply); return;
+    }
+    if(p && p.bestReplyId){
+      const idStr = String(p.bestReplyId);
+      const hit = LAST_COMMENTS_CACHE.find(c => String(c._id||c.id) === idStr);
+      if(hit) return renderBestBox(hit);
+    }
+    if (LAST_COMMENTS_CACHE.length){
+      renderBestBox(findBestFromComments(LAST_COMMENTS_CACHE));
+    }
+  }
+
+  /* === 讀留言 === */
   async function fetchComments(){
     try{
       let res = await fetch(`${API}/comments/post/${encodeURIComponent(postId)}`, { headers: authHeaders() });
@@ -154,7 +222,7 @@
     }catch{ return []; }
   }
 
-  /* ===== Best/Like API ===== */
+  /* === Best / Like API === */
   async function setBest(id){
     const r = await fetch(`${API}/comments/${encodeURIComponent(id)}/best`, { method:'PUT', headers:authHeaders() });
     if(!r.ok) throw new Error(); return r.json().catch(()=>({}));
@@ -164,7 +232,7 @@
     if(!r.ok) throw new Error(); return r.json().catch(()=>({}));
   }
 
-  /* ===== replyId：同時考慮伺服器 + 本機 ===== */
+  /* === replyId 推算 === */
   async function getNextReplyId(){
     try{
       const [server, pending] = await Promise.all([fetchComments().catch(()=>[]), Promise.resolve(loadPending())]);
@@ -174,7 +242,7 @@
     }catch{ return (loadPending().length||0)+1; }
   }
 
-  /* ===== 留言作者判定 ===== */
+  /* === 留言作者（給加點用） === */
   function getCommentAuthorId(c){
     const a = c.author;
     if (!a) return String(c.authorId || c.userId || '');
@@ -182,13 +250,16 @@
     return String(a._id || a.id || a.userId || '');
   }
 
-  /* ===== 渲染留言（把「去商店使用」改為真正的按讚）===== */
   function iLikedThis(c){
-    const me=currentUserId(); if(!me) return false;
-    if(Array.isArray(c.likedBy)) return c.likedBy.some(x=>String(x._id||x.id||x)===me);
-    return false;
+    try{
+      const me = JSON.parse(localStorage.getItem('user')||'{}')._id;
+      if(!me) return false;
+      if(Array.isArray(c.likedBy)) return c.likedBy.some(x=>String(x._id||x.id||x)===String(me));
+      return false;
+    }catch{ return false; }
   }
 
+  /* === 渲染留言（保留勾選） === */
   function renderComment(c, {pending=false, indexForDisplay=null}={}){
     const div=document.createElement('div');
     const cid=String(c._id||c.id||'');
@@ -213,11 +284,10 @@
       <div class="actions">
         <span>讚數：<b id="lk-${cid}">${likes}</b></span>
         ${(!pending && cid) ? `<button class="btn like-btn ${liked?'active':''}" data-like="${cid}" data-author="${receiverId}">👍 ${liked?'已讚':'按讚/取消'}</button>` : ''}
-        ${(!pending && cid && isPostAuthor()) ? `<button class="btn" data-best="${cid}">${isBest ? '取消最佳' : '設為最佳'}</button>` : ''}
+        <label class="chk-wrap"><input type="checkbox" class="chk-best" data-id="${cid}" ${isBest?'checked':''}/> 勾選</label>
       </div>
     `;
 
-    /* like：成功後切換外觀、更新數字，並給留言作者 ±50 分 */
     if (!pending && cid) {
       const btn = div.querySelector(`[data-like="${cid}"]`);
       btn?.addEventListener('click', async (ev)=>{
@@ -233,39 +303,45 @@
           b.textContent = '👍 ' + (b.classList.contains('active') ? '已讚' : '按讚/取消');
 
           const targetUser = b.getAttribute('data-author');
-          if (targetUser) addPoints(targetUser, nowLiked ? 50 : -50); // ★ 按讚=+50，取消=-50
+          if (targetUser) addPoints(targetUser, nowLiked ? 50 : -50);
         }catch(e){ console.warn('like 失敗：', e); } finally{ b.disabled=false; }
-      });
-    }
-
-    /* best（只有文章作者） */
-    if (!pending && cid && isPostAuthor()) {
-      const btn = div.querySelector(`[data-best="${cid}"]`);
-      btn?.addEventListener('click', async (ev)=>{
-        if(!localStorage.getItem('token') && !localStorage.getItem('authToken')){ location.href='login2.html'; return; }
-        const b=ev.currentTarget; b.disabled=true;
-        try{ await setBest(cid); await loadComments(); }catch(e){ console.warn('setBest 失敗：', e); } finally{ b.disabled=false; }
       });
     }
 
     return div;
   }
 
-  /* ===== 載入留言（含顯示用 replyId 連號）===== */
+  /* 勾選互斥 */
+  document.addEventListener('change', (e)=>{
+    const el = e.target;
+    if (!el.classList?.contains('chk-best')) return;
+    if (el.checked){
+      document.querySelectorAll('.chk-best').forEach(b=>{ if(b!==el) b.checked=false; });
+    }
+  });
+
+  /* 載入留言 */
   async function loadComments(){
     const list=document.getElementById('cList'), empty=document.getElementById('cEmpty');
     list.innerHTML=''; empty.style.display='none';
 
-    // 先顯示本機暫存
     const pending=loadPending();
     pending.forEach((p,i)=> list.appendChild(renderComment(p,{pending:true,indexForDisplay:`p${pending.length-i}`})));
 
-    // 再顯示後端
     const server=await fetchComments();
-    if(!pending.length && !server.length){ empty.style.display=''; return; }
+    LAST_COMMENTS_CACHE = Array.isArray(server)?server.slice():[];
+
+    if(!pending.length && !server.length){ empty.style.display=''; renderBestFromPostShape({}); return; }
+
+    const localBestId = getBestLocal(postId);
+    if (localBestId) {
+      server.forEach(c => {
+        if (String(c._id||c.id) === String(localBestId)) c.bestReply = true;
+        else c.bestReply = false;
+      });
+    }
 
     server.sort((a,b)=> new Date(b.createdAt)-new Date(a.createdAt));
-    // 對沒有 replyId 的留言發配不重複連號
     const used=new Set(); server.forEach(sc=>{ if(Number.isFinite(Number(sc.replyId))) used.add(Number(sc.replyId)); });
     let cursor=1;
     server.forEach(sc=>{
@@ -274,10 +350,19 @@
       list.appendChild(renderComment(sc,{indexForDisplay:no}));
     });
 
+    // 顯示最佳：本地 > 推斷
+    if (localBestId) {
+      const hit = server.find(c => String(c._id||c.id) === String(localBestId));
+      if (hit) renderBestBox(hit);
+    } else {
+      const inferred = findBestFromComments(server);
+      if(inferred) renderBestBox(inferred);
+    }
+
     if(server.length) removePendingIfSynced(server);
   }
 
-  /* ===== 對齊：最多 5 次、每次 600ms ===== */
+  /* 發文後對齊 */
   async function reconcileAfterPost(insertedContent){
     for (let i=0;i<5;i++){
       await new Promise(r=>setTimeout(r,600));
@@ -287,7 +372,7 @@
     }
   }
 
-  /* ===== 新增留言：送 cutoffTime + replyId ===== */
+  /* 新增留言 */
   function defaultCutoffISO(){ const d=new Date(Date.now()+7*24*60*60*1000); const pad=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; }
   function toISOFromLocalInput(v){ if(!v) return null; try{ return new Date(v).toISOString(); }catch{ return null; } }
 
@@ -329,9 +414,55 @@
     }
   }
 
+  // 《確認選擇》：設為最佳 + 加點數（本地成功即可）
+  document.getElementById('btnConfirmBest')?.addEventListener('click', async ()=>{
+    const status = document.getElementById('bestStatus');
+    const checked = document.querySelector('.chk-best:checked');
+    if (!checked){ alert('請先勾選 1 則留言'); return; }
+
+    const cid = checked.getAttribute('data-id');
+
+    // 1) 本地保存並立即反映 UI
+    setBestLocal(postId, cid);
+    status.textContent = '已在本地設定最佳，正在同步伺服器…';
+
+    await loadComments();
+
+
+    const now = LAST_COMMENTS_CACHE.find(c => String(c._id||c.id) === String(cid)) || null;
+    if(now){
+      now.bestReply = true;
+      renderBestBox(now);
+
+      try {
+        const targetUser = getCommentAuthorId(now);
+        const BONUS = 500;
+        if (targetUser) addPoints(targetUser, BONUS);
+        status.textContent = `已加 ${BONUS} 分給此留言作者（可到商店使用）`;
+      } catch(e) {
+        console.warn('加點數失敗：', e);
+      }
+    }
+
+    try {
+      await setBest(cid);
+      status.textContent += '，並已同步伺服器。';
+    } catch(e) {
+      console.warn('setBest 失敗：', e);
+      status.textContent += '伺服器不同步';
+    }
+    setTimeout(()=> status.textContent = '', 1800);
+  });
+
   document.getElementById('btnAdd').addEventListener('click', addComment);
   (function initCutoff(){ document.getElementById('cutoffInput').value = defaultCutoffISO(); })();
-  (async function init(){ if(!postId){ alert('缺少文章ID'); location.href='post.html'; return; } refreshUserBadge(); await loadPost(); await loadComments(); setInterval(loadComments, 10000); })();
+  (async function init(){
+    if(!postId){ alert('缺少文章ID'); location.href='post.html'; return; }
+    refreshUserBadge();
+    await loadPost(); 
+    await loadComments();
+    setInterval(loadComments, 10000);
+  })();
 </script>
 </body>
 </html>
