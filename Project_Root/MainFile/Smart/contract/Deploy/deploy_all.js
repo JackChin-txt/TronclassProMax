@@ -30,7 +30,7 @@ async function writeABI(fqn, saveAs) {
 function writeAddresses(obj) {
   fs.mkdirSync(OUT_DIR, { recursive: true });
   fs.writeFileSync(ADDR_FP, JSON.stringify(obj, null, 2));
-  console.log("📦 wrote addresses ->", ADDR_FP);
+  console.log(" wrote addresses ->", ADDR_FP);
 }
 
 async function main() {
@@ -55,28 +55,28 @@ async function main() {
   }
   await wallet.waitForDeployment();
   const walletAddr = await wallet.getAddress();
-  console.log("✅ wallet_contract_test:", walletAddr);
+  console.log(" wallet_contract_test:", walletAddr);
 
   // 2) PostManager
   const PostManager = await ethers.getContractFactory(FQN_POSTMGR);
   const postMgr = await PostManager.deploy();
   await postMgr.waitForDeployment();
   const postMgrAddr = await postMgr.getAddress();
-  console.log("✅ PostManager        :", postMgrAddr);
+  console.log(" PostManager        :", postMgrAddr);
 
   // 3) QnAManager（constructor 需要 wallet + postMgr）
   const QnAManager = await ethers.getContractFactory(FQN_QNA);
   const qna = await QnAManager.deploy(walletAddr, postMgrAddr);
   await qna.waitForDeployment();
   const qnaAddr = await qna.getAddress();
-  console.log("✅ QnAManager         :", qnaAddr);
+  console.log(" QnAManager         :", qnaAddr);
 
   // 4) 先 mint 再轉 owner（Mint/Burn 只有 owner 可呼叫）
   const decimals = await wallet.decimals();
   const mintAmt = ethers.parseUnits(DEMO_MINT, decimals);
   await (await wallet.Mint(demoUser.address, mintAmt)).wait();
   await (await wallet.transferOwnership(qnaAddr)).wait();
-  console.log("🔑 wallet owner -> QnAManager 完成");
+  console.log(" wallet owner -> QnAManager 完成");
 
   // 6) 輸出 ABI 與地址（前端直接讀）
   await writeABI(FQN_WALLET,  "wallet_contract_test");
@@ -95,10 +95,10 @@ async function main() {
   const sym = await wallet.symbol();
   const raw = await wallet.getAccountMoney(demoUser.address);
   const display = ethers.formatUnits(raw, dec);
-  console.log("🩺 symbol            :", sym);
-  console.log("🩺 demoUser balance  :", display);
+  console.log(" symbol            :", sym);
+  console.log(" demoUser balance  :", display);
 
-  console.log("🎉 All contracts deployed & wired. Ready for frontend.");
+  console.log(" All contracts deployed & wired. Ready for frontend.");
 }
 
 main().catch((e) => {

@@ -10,6 +10,7 @@ async function sendRewardNotification(to, subject, message) {
   };
 
   try {
+    console.log('[mail] 即將寄信給:', to);
     await transporter.sendMail(mailOptions);
     console.log('Email sent successfully to:', to);
   } catch (error) {

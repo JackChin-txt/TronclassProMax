@@ -69,23 +69,23 @@ async function redeemReward(req, res) {
       rewardItemId: rewardId
     });
     // 檢查兌換次數是否超過限制
-    if (reward.userLimit > 0 && redemptionCount >= reward.userLimit) {
+    /*if (reward.userLimit > 0 && redemptionCount >= reward.userLimit) {
       return res.status(403).json({
         success: false,
         message: 'Redemption limit reached',
         pointsDeducted: 0,
         remainingPoints: user.points
       });
-    }
+    }*/
     // 檢查使用者點數是否足夠
-    if (user.points < reward.pointsRequired) {
+    /*if (user.points < reward.pointsRequired) {
       return res.status(400).json({
         success: false,
         message: 'Insufficient points',
         pointsDeducted: 0,
         remainingPoints: user.points
       });
-    }
+    }*/
     // 檢查非 grade 獎勵是否有庫存
     if (reward.type !== 'grade' && reward.quantity <= 0) {
       return res.status(400).json({
@@ -116,9 +116,9 @@ async function redeemReward(req, res) {
 
     // 發送通知信
     await sendRewardNotification(
-      user.email,
+      'uniamlajack@gmail.com',
       'Reward Redemption Confirmation',
-      `Hi ${user.username}, you have successfully redeemed the reward: "${reward.name}".`
+      `Hi ${user.username}, you have successfully redeemed the reward: "${reward.name},".`
     );
 
     // 回傳成功與點數資訊

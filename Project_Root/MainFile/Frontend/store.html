@@ -20,6 +20,7 @@
   .balance{padding:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
   .item{padding:16px}
+  .store-card{margin-top:16px;padding:16px}
   .item h3{margin:0 0 6px;font-size:18px}
   .muted{color:var(--muted);font-size:14px}
   .price{font-weight:700}
@@ -39,50 +40,249 @@
       <button class="btn" onclick="refreshBalance()">刷新</button>
     </div>
 
-    <div class="grid" id="storeGrid"></div>
+    <div class="card store-card">
+      <div class="grid" id="storeGrid"></div>
+    </div>
   </div>
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
 
-<script>
-  const LEDGER_KEY='pointsLedger';
-  function getLedger(){try{return JSON.parse(localStorage.getItem(LEDGER_KEY)||'{}')}catch{return{}}}
-  function setLedger(o){localStorage.setItem(LEDGER_KEY,JSON.stringify(o||{}))}
-  function getUser(){try{return JSON.parse(localStorage.getItem('user')||'{}')}catch{return{}}}
-  function currentUserId(){const u=getUser();return String(u._id||u.id||'')}
-  function getBalance(){const l=getLedger();return Number(l[currentUserId()]||0)}
-  function addPoints(delta){const l=getLedger();const id=currentUserId();l[id]=(Number(l[id]||0)+Number(delta||0))|0;setLedger(l)}
+<script type="module">
+  import { initWallet } from './js/chain/module/wallet.js';
+  import { initQna    } from './js/chain/module/qna.js';
 
-  function logout(){localStorage.removeItem('token');localStorage.removeItem('user');location.href='login2.html'}
+  /* ===== 基本設定 ===== */
+  const API_BASE = 'http://localhost:3000/api';
 
-  async function refreshBalance(){document.getElementById('bal').textContent=getBalance()}
+  function getUser(){
+    try { return JSON.parse(localStorage.getItem('user') || '{}'); }
+    catch { return {}; }
+  }
+  function currentUserId(){
+    const u = getUser();
+    return String(u._id || u.id || u.walletId || '');
+  }
+  function logout(){
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    location.href = 'login2.html';
+  }
+  window.logout = logout;
+  document.getElementById('logoutBtn')?.addEventListener('click', logout);
+  document.getElementById('backBtn')?.addEventListener('click', ()=>location.href='post.html');
 
-  // 假資料；正式改成打你後端的 /api/rewards 清單
-  const items=[
-    { id:'coupon-50', name:'作業加分券 (50)', cost:50, desc:'期末成績 +1（示例）' },
-    { id:'badge-30',  name:'榮譽徽章 (30)',   cost:30, desc:'個人頁徽章（示例）' },
-    { id:'notify-10', name:'老師提醒券 (10)', cost:10, desc:'請老師寄信提醒（示例）' },
+  /* ===== 鏈上相關變數 ===== */
+  const WALLET_MIN_ABI = [
+    "function balanceOf(address owner) view returns (uint256)",
+    "function decimals() view returns (uint8)"
   ];
+  let walletAddressOnChain = null;
+  let provider, signer, walletMod, qnaMod, currentWallet; // module 級共用
+  const CHAIN_ID = 31337;        // Hardhat
+  const CHAIN_HEX = '0x7a69';    // 31337 的 16 進位
 
+  async function ensureChainAndModules(){
+    if (!window.ethereum) throw new Error('找不到錢包（window.ethereum）');
+
+    if (!provider){
+      provider = new ethers.providers.Web3Provider(window.ethereum);
+      await provider.send('eth_requestAccounts', []);
+      let net = await provider.getNetwork();
+      if (+net.chainId !== CHAIN_ID){
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: CHAIN_HEX }],
+        });
+        net = await provider.getNetwork();
+      }
+      signer = provider.getSigner();
+      const u = getUser();
+      if (u && u.walletId) {
+        currentWallet = String(u.walletId).toLowerCase();
+      } else {
+        const accts = await provider.listAccounts();
+        currentWallet = (accts[0] || '').toLowerCase();
+      }
+    }
+
+    if (!walletMod || !qnaMod){
+      const addrs = await fetch('./js/chain/addresses.json').then(r=>r.json());
+      const walletAddr = addrs.wallet_contract_test;
+      const qnaAddr    = addrs.QnAManager;
+      if (!walletAddr) throw new Error('addresses.json 裡找不到 wallet_contract_test');
+      if (!qnaAddr)    throw new Error('addresses.json 裡找不到 QnAManager');
+      walletAddressOnChain = walletAddr;
+      walletMod = await initWallet({ provider, signer, address: walletAddr });
+      qnaMod    = await initQna   ({ provider, signer, address: qnaAddr, wallet: walletMod });
+    }
+  }
+
+  /* ===== 從鏈上讀餘額 ===== */
+  async function getOnchainBalanceNumber(){
+    await ensureChainAndModules();
+    if (!currentWallet) throw new Error('尚未取得目前錢包地址');
+    if (!walletAddressOnChain) throw new Error('尚未取得 Wallet 合約位址');
+
+    // 每次都用最原始的 ethers.Contract 重新去鏈上問，不經過 walletMod 的 cache
+    const walletContract = new ethers.Contract(
+      walletAddressOnChain,
+      WALLET_MIN_ABI,
+      provider
+    );
+
+    const bn        = await walletContract.balanceOf(currentWallet); // BigNumber
+    const decimals  = await walletContract.decimals();               // 通常是 18
+    const humanStr  = ethers.utils.formatUnits(bn, decimals);        // 例如 "200.0"
+    const num       = Number(humanStr);
+
+    console.log('[store] 查詢餘額：');
+    console.log('  address   =', currentWallet);
+    console.log('  raw BN    =', bn.toString());
+    console.log('  decimals  =', decimals);
+    console.log('  human str =', humanStr);
+    console.log('  number    =', num);
+
+    return Number.isFinite(num) ? num : 0;
+  }
+
+
+  async function refreshBalance(){
+    try{
+      const bal = await getOnchainBalanceNumber();
+      const text = bal.toLocaleString('zh-TW', { maximumFractionDigits: 2 });
+      document.getElementById('bal').textContent = text;
+    }catch(e){
+      console.warn('讀鏈上餘額失敗：', e);
+      document.getElementById('bal').textContent = '—';
+    }
+  }
+  window.refreshBalance = refreshBalance;
+  /* ===== 商品清單（先用前端假資料）===== */
+  // 這裡可以先寫死幾個商品；之後要接後端 /api/rewards 再改
+  /*const items = [
+    {
+      id:       'coupon-50',        // 前端用的 id
+      backendId: null,              // << 如果你之後在 DB 裡建好 reward，填它的 _id 到這裡
+      name:     '作業加分券 (50)',
+      cost:     50,
+      desc:     '期末成績 +1（示例：會寄信到你的信箱）',
+    },
+    // 需要更多商品可以照樣加
+  ];*/
+    
+  const items = [
+  {
+    id:        'coupon-50',
+    backendId: '68989d0877cd8c0b42cf6a4e',
+    name:      '作業加分券 (50)',
+    cost:      50,
+    desc:      '期末成績 +1（示例）',
+  },
+  {
+    id:        'badge-30',
+    backendId: null,            // 先不接後端，只做區塊鏈 demo
+    name:      '榮譽徽章 (30)',
+    cost:      30,
+    desc:      '個人頁徽章（示例）',
+  },
+  {
+    id:        'notify-10',
+    backendId: null,            // 同上
+    name:      '老師提醒券 (10)',
+    cost:      10,
+    desc:      '請老師寄信提醒（示例）',
+  },
+];
+
+  
   function renderStore(){
-    const grid=document.getElementById('storeGrid'); grid.innerHTML='';
+    const grid = document.getElementById('storeGrid') || document.getElementById('grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
     items.forEach(it=>{
-      const div=document.createElement('div'); div.className='card item';
-      div.innerHTML=`
+      const div = document.createElement('div');
+      div.className = 'card item';
+      div.innerHTML = `
         <h3>${it.name}</h3>
-        <div class="muted">${it.desc||''}</div>
-        <div style="margin-top:8px">價格：<span class="price">${it.cost}</span> 分</div>
-        <div style="margin-top:12px"><button class="btn primary">兌換</button></div>
+        <p class="desc">${it.desc}</p>
+        <p class="price">價格：<strong>${it.cost}</strong> 分</p>
+        <button class="btn primary">兌換</button>
       `;
-      div.querySelector('button').addEventListener('click',()=>{
-        if(getBalance()<it.cost){alert('點數不足');return}
-        addPoints(-it.cost);
-        refreshBalance();
-        alert('兌換成功！（前端扣點）');
-      });
+      div.querySelector('button').addEventListener('click', ()=>redeemItem(it));
       grid.appendChild(div);
     });
   }
 
-  (async function init(){renderStore();await refreshBalance()})();
+  /* ===== 兌換流程：先從鏈上驗證 & burn，再打後端寄信 ===== */
+  async function redeemItem(item){
+    try{
+      await ensureChainAndModules();
+
+      const bal = await getOnchainBalanceNumber();
+      if (bal < item.cost){
+        alert(`點數不足，目前只有 ${bal} 分`);
+        return;
+      }
+
+      // 1) 鏈上扣點（QnAManager 內部會對 Wallet.Burn）
+      console.log('🛒 開始鏈上扣點，價格 =', item.cost);
+      const txRes = await qnaMod.redeemAttempt(item.cost);   // qna.js 會幫你轉成最小單位
+      console.log('Redeem tx =', txRes.tx);
+      alert('區塊鏈上扣點成功，tx = ' + txRes.tx);
+
+      // 2) 重新讀鏈上餘額以更新畫面
+      await refreshBalance();
+
+      // 3) 告知後端：這筆兌換已完成，請寄信（demo 用）
+      const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+
+      // 只對有 backendId 的商品打後端（現在就是「作業加分券」那一個）
+      if (!token) {
+        console.warn('找不到 token，請確認是從 login2.html 登入後再進入商城');
+      } else if (!item.backendId) {
+        console.log('[store] 此商品未設定 backendId，只做區塊鏈扣點，不打後端。');
+      } else {
+        try {
+          const res = await fetch(`${API_BASE}/rewards/${encodeURIComponent(item.backendId)}/redeem`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + token,
+            },
+            body: JSON.stringify({ note: 'demo redeem from store.html' }),
+          });
+          const data = await res.json().catch(() => ({}));
+          console.log('後端 redeem 回應 =', res.status, data);
+
+          if (!res.ok) {
+            alert('鏈上扣點成功，但後端寄信失敗（可以看 console）');
+          } else {
+            alert('後端已接收兌換資訊，預期會寄一封示範信到你的信箱');
+          }
+        } catch (err) {
+          console.warn('通知後端寄信失敗：', err);
+          alert('鏈上扣點成功，但無法連上後端寄信（demo 仍算成功）');
+        }
+      }
+    }catch(e){
+      console.error('兌換發生錯誤：', e);
+      alert('兌換失敗：' + (e.message || e));
+    }
+  }
+
+  /* ===== 初始化 ===== */
+  (async function init(){
+    const u = getUser();
+    if (!u || !u.walletId){
+      alert('請先使用錢包登入再進入商城');
+      location.href = 'login2.html';
+      return;
+    }
+
+    renderStore();
+    await refreshBalance();
+  })();
 </script>
+
 </body>
 </html>
