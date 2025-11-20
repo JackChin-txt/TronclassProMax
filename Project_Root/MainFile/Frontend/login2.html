@@ -69,6 +69,7 @@
     a.link:hover { text-decoration: underline; }
   </style>
 </head>
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
 <body>
 
   <h1>登入系統</h1>
@@ -101,17 +102,100 @@
 
     <a class="link" href="register2.html">還沒有帳號？前往註冊</a>
   </div>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js">
 
+
+  </script>
   <script>
   const statusEl    = document.getElementById("status");
   const walletEl    = document.getElementById("walletId");
   const nameEl      = document.getElementById("username");
   const roleDisplay = document.getElementById("roleDisplay");
-
+  const ERC20_ABI = ['function balanceOf(address) view returns (uint256)'];
   function setStatus(msg, isError = false) {
     statusEl.textContent = msg || "";
     statusEl.style.color = isError ? "#fca5a5" : "#cbd5e1";
   }
+
+     const WALLET_MIN_ABI = [
+    "function balanceOf(address owner) view returns (uint256)",
+    "function decimals() view returns (uint8)"
+  ];
+
+  async function syncOnchainBalanceToBackend() {
+    const walletId = (walletEl.value || "").trim().toLowerCase();
+    console.log("[syncOnchain] start, walletId =", walletId);
+
+    if (!walletId) {
+      console.warn("[syncOnchain] 沒有 walletId，直接丟錯給外面");
+      throw new Error("syncOnchainBalance：找不到錢包位址");
+    }
+    if (!window.ethereum) {
+      console.warn("[syncOnchain] 沒有 window.ethereum");
+      throw new Error("syncOnchainBalance：找不到 MetaMask / window.ethereum");
+    }
+
+    const provider = new ethers.providers.Web3Provider(window.ethereum);
+    await provider.send("eth_requestAccounts", []);
+
+    const net = await provider.getNetwork();
+    console.log("[syncOnchain] current chainId =", net.chainId);
+
+    // 讀 addresses.json
+    const addrs = await fetch("./js/chain/addresses.json").then(r => r.json());
+    const walletAddr = addrs.wallet_contract_test;
+    console.log("[syncOnchain] wallet_contract_test =", walletAddr);
+
+    if (!walletAddr) {
+      throw new Error("syncOnchainBalance：addresses.json 裡找不到 wallet_contract_test");
+    }
+
+    // 直接用最小 ABI 讀 balanceOf
+    const walletCt = new ethers.Contract(walletAddr, WALLET_MIN_ABI, provider);
+    const rawBN  = await walletCt.balanceOf(walletId);
+    const rawStr = rawBN.toString();
+    console.log("[syncOnchain] on-chain raw balance =", rawStr);
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      console.warn("[syncOnchain] 沒有登入 token，略過回報後端，只回傳 rawStr");
+      return rawStr;
+    }
+
+    // 打後端 API，同步到 DB
+    const payload = { walletId, balanceRaw: rawStr };
+    console.log("[syncOnchain] POST → /api/users/me/points/sync-onchain payload =", payload);
+
+    try {
+      const res = await fetch("http://localhost:3000/api/users/me/points/sync-onchain", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + token
+        },
+        body: JSON.stringify(payload)
+      });
+
+      console.log("[syncOnchain] backend status =", res.status);
+
+      let body = null;
+      try {
+        body = await res.json();
+      } catch (_) {
+        // 有些情況可能沒 JSON，略過
+      }
+      console.log("[syncOnchain] backend response body =", body);
+
+      if (!res.ok) {
+        console.warn("[syncOnchain] 後端回傳非 2xx，DB 可能沒有成功更新");
+      }
+    } catch (e) {
+      console.warn("回報鏈上餘額給後端失敗（登入不阻擋）：", e);
+    }
+
+    return rawStr;
+  }
+
 
   async function connectMetaMask() {
     if (!window.ethereum) {
@@ -182,7 +266,7 @@
       let finalRole = "student";
       let userFromServerName = serverName; // ← 先宣告／預設
       try {
-        const meRes = await fetch("http://localhost:3000/api/auth/me", {
+        const meRes = await fetch("http://localhost:3000/api/users/me", {
           method: "GET",
           headers: { Authorization: "Bearer " + localStorage.getItem("token") }
         });
@@ -199,6 +283,13 @@
       // 最終落地 user
       const user = { username: userFromServerName, walletId, role: finalRole };
       localStorage.setItem("user", JSON.stringify(user));
+
+      try {
+        const raw = await syncOnchainBalanceToBackend();
+        console.log("[login] on-chain tokenRaw =", raw);
+      } catch (e) {
+        console.warn("同步鏈上餘額到後端失敗（不影響登入流程）：", e);
+      }
 
       // 顯示 / 導頁
       roleDisplay.value = finalRole;

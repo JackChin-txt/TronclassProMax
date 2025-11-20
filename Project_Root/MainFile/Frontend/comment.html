@@ -190,6 +190,37 @@
     return false;
   }
 
+  const LOCAL_LIKE_KEY = 'localLikedComments';
+
+  function loadLocalLikes() 
+  {
+    try 
+    {
+      return JSON.parse(localStorage.getItem(LOCAL_LIKE_KEY) || '{}');
+    } catch 
+    {
+      return {};
+    }
+  }
+
+  function saveLocalLikes(map) 
+  {
+    localStorage.setItem(LOCAL_LIKE_KEY, JSON.stringify(map));
+  }
+
+  function hasLocalLiked(commentId) 
+  {
+    const map = loadLocalLikes();
+    return !!map[commentId];
+  }
+
+  function markLocalLiked(commentId) 
+  {
+    const map = loadLocalLikes();
+    map[commentId] = true;
+    saveLocalLikes(map);
+  }
+
   function renderComment(c, {pending=false, indexForDisplay=null}={}){
     const div=document.createElement('div');
     const cid=String(c._id||c.id||'');
@@ -197,7 +228,7 @@
     const isBest=Boolean(c.bestReply===true);
     const cutoff=c.cutoffTime||c.cutofftime||c.cutoff||null;
     const replyNo=(typeof c.replyId==='number'?c.replyId:indexForDisplay);
-    const liked=iLikedThis(c);
+    const liked = iLikedThis(c) || hasLocalLiked(cid);
     const receiverId = getCommentAuthorId(c);
     const receiverName = c.author?.username || c.authorName || '匿名';
 
@@ -213,31 +244,72 @@
       <div class="txt">${escapeHtml(c.content || '')}</div>
       <div class="actions">
         <span>讚數：<b id="lk-${cid}">${likes}</b></span>
-        ${(!pending && cid) ? `<button class="btn like-btn ${liked?'active':''}" data-like="${cid}" data-author="${receiverId}">👍 ${liked?'已讚':'按讚/取消'}</button>` : ''}
+        ${(!pending && cid) ? `<button class="btn like-btn ${liked?'active':''}" ${liked?'disabled':''} data-like="${cid}" data-author="${receiverId}">👍 ${liked?'已讚':'按讚/取消'}</button>` : ''}
         ${(!pending && cid && isPostAuthor()) ? `<button class="btn" data-best="${cid}">${isBest ? '取消最佳' : '設為最佳'}</button>` : ''}
       </div>
     `;
 
-    /* like：成功後切換外觀、更新數字，並給留言作者 ±50 分 */
-    if (!pending && cid) {
+    /* like：成功後切換外觀、更新數字，並給留言作者 + 分 */
+        if (!pending && cid) {
       const btn = div.querySelector(`[data-like="${cid}"]`);
       btn?.addEventListener('click', async (ev)=>{
-        if(!localStorage.getItem('token') && !localStorage.getItem('authToken')){ location.href='login2.html'; return; }
-        const b=ev.currentTarget; b.disabled=true;
-        try{
-          const data = await likeRequest(cid);
-          const after = Number(data.likes ?? data.numOfLikes ?? document.getElementById(`lk-${cid}`)?.textContent ?? likes);
-          const nEl = document.getElementById(`lk-${cid}`); if(nEl) nEl.textContent = after;
+        if(!localStorage.getItem('token') && !localStorage.getItem('authToken')){
+          location.href='login2.html';
+          return;
+        }
 
-          const nowLiked = !b.classList.contains('active');
-          b.classList.toggle('active');
-          b.textContent = '👍 ' + (b.classList.contains('active') ? '已讚' : '按讚/取消');
+        const b = ev.currentTarget;
 
+        // 🔒 本機紀錄裡已經按過讚了，就直接無視
+        if (hasLocalLiked(cid) || b.classList.contains('active')) {
+          return;
+        }
+
+        b.disabled = true;
+        try {
+          // 1. 後端 like（失敗就算了，純 UI + 鏈上）
+          try {
+            const data = await likeRequest(cid);
+            const after = Number(
+              data.likes 
+              ?? data.numOfLikes 
+              ?? document.getElementById(`lk-${cid}`)?.textContent 
+              ?? likes
+            );
+            const nEl = document.getElementById(`lk-${cid}`);
+            if (nEl) nEl.textContent = after;
+          } catch(e2) {
+            console.warn('後端 /like 失敗，略過：', e2);
+          }
+
+          // 2. UI 標記為已讚、鎖死
+          b.classList.add('active');
+          b.textContent = '👍 已讚';
+          b.disabled = true;
+
+          // 3. 本機紀錄起來，之後重載頁面也記得
+          markLocalLiked(cid);
+
+          // 4. 鏈上發獎勵
+          if (window.qnaLikeReward) {
+            try {
+              await window.qnaLikeReward(200);  // 你現在設定的獎勵點數
+            } catch(chainErr) {
+              console.warn('鏈上按讚獎勵失敗：', chainErr);
+            }
+          }
+
+          // 5. （可選）本機 points ledger
           const targetUser = b.getAttribute('data-author');
-          if (targetUser) addPoints(targetUser, nowLiked ? 50 : -50); // ★ 按讚=+50，取消=-50
-        }catch(e){ console.warn('like 失敗：', e); } finally{ b.disabled=false; }
+          if (targetUser) addPoints(targetUser, 50);
+
+        } finally {
+          // 這裡可以保持 disabled = true，不用再打開
+          // b.disabled = false;
+        }
       });
     }
+
 
     /* best（只有文章作者） */
     if (!pending && cid && isPostAuthor()) {
@@ -332,15 +404,16 @@
 
   //document.getElementById('btnAdd').addEventListener('click', addComment);
   (function initCutoff(){ document.getElementById('cutoffInput').value = defaultCutoffISO(); })();
-  (async function init(){ if(!postId){ alert('缺少文章ID'); location.href='post.html'; return; } refreshUserBadge(); await loadPost(); await loadComments(); setInterval(loadComments, 10000); })();
+  (async function init(){ if(!postId){ alert('缺少文章ID'); location.href='post.html'; return; } refreshUserBadge(); await loadPost(); await loadComments();})();
 </script>
 
 <!-- ethers 載過就不用重複；沒載過就保留這行 -->
 <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
 
 <script type="module">
-  import { initPost } from './js/chain/module/post.js';
-
+  import { initPost }   from './js/chain/module/post.js';
+  import { initQna }    from './js/chain/module/qna.js';
+  import { initWallet } from './js/chain/module/wallet.js';
   // ===== 基本設定 =====
   const API_URL =
     (typeof window.API === 'string' && window.API) ? window.API :
@@ -367,22 +440,83 @@
     return rc;
   }
 
-  async function getPostContract(){
-    if (!window.ethereum) throw new Error('找不到錢包（window.ethereum）');
+  async function getPostContract()
+  {
+    if (!window.ethereum) 
+      throw new Error('找不到錢包（window.ethereum）');
     const provider = new ethers.providers.Web3Provider(window.ethereum);
     await provider.send('eth_requestAccounts', []);
     let net = await provider.getNetwork();
-    if (+net.chainId !== 31337){
+    if (+net.chainId !== 31337)
+    {
       await window.ethereum.request({ method:'wallet_switchEthereumChain', params:[{ chainId:'0x7a69' }] });
     }
     const addrs = await fetch('./js/chain/addresses.json').then(r=>r.json());
     const code  = await provider.getCode(addrs.PostManager);
-    if (!code || code === '0x') throw new Error('PostManager 未部署或位址錯誤；請重佈署並更新 addresses.json');
+    if (!code || code === '0x') 
+      throw new Error('PostManager 未部署或位址錯誤；請重佈署並更新 addresses.json');
     const post  = await initPost({ provider, signer: provider.getSigner(), address: addrs.PostManager });
     const c     = getContract(post);
     const iface = getIface(c);
     return { provider, contract: c, iface };
   }
+
+  let __qnaCache = null;
+    // ===== QnA + Wallet 初始化（共用 getPostContract 的 provider） =====
+
+  // 這個變數用來「記住」第一次建立好的 qna / wallet，
+  // 之後按讚的時候就不用每次都重新初始化
+  // 這個函式的工作就是：
+  // 1. 呼叫 getPostContract()，拿到 provider（也順便確保 chainId = 31337）
+  // 2. 讀 addresses.json，拿到 WalletContract 跟 QnAManager 的地址
+  // 3. 用 initWallet / initQna 幫你組好可以用的 JS 物件
+  async function getQnaModule() {
+    // 如果之前已經初始化過了，就直接回傳記住的那份
+    if (__qnaCache) return __qnaCache;
+
+    // 從你原本的 getPostContract 借 provider
+    const { provider } = await getPostContract();
+
+    // 讀取 Hardhat 部署後輸出的 addresses.json
+    const addrs = await fetch('./js/chain/addresses.json').then(r => r.json());
+
+    // 從 provider 拿 signer（現在這個登入的 MetaMask 帳號）
+    const signer = provider.getSigner();
+
+    // ! 注意：這兩個 key 要跟 addresses.json 裡的名字一致 !
+    // 你可以先打開 addresses.json 看長什麼樣子：
+    // 例：{ "PostManager": "...", "wallet_contract_test": "...", "QnAManager": "..." }
+    const wallet = await initWallet({
+      provider,
+      signer,
+      address: addrs.wallet_contract_test,   // 如果 key 名不同，就改這行
+    });
+
+    const qna = await initQna({
+      provider,
+      signer,
+      address: addrs.QnAManager,            // 如果 key 名不同，就改這行
+      wallet,
+    });
+
+    // 把結果記起來，下次再叫 getQnaModule() 時直接用
+    __qnaCache = { provider, signer, wallet, qna };
+    return __qnaCache;
+  }
+
+  // ===== 對外開一個 window.qnaLikeReward，給上面那個非 module script 用 =====
+
+  // 為什麼要掛在 window 上？
+  // 因為上面的 <script> 不是 module，不能用 import，
+  // 但它可以直接用 window.qnaLikeReward(...)
+  window.qnaLikeReward = async function qnaLikeReward(amountHuman) {
+    // 先取得剛剛準備好的 qna 模組
+    const { qna } = await getQnaModule();
+
+    // amountHuman 是「人能看懂」的數字，例如 10、50
+    // qna.likeReward 裡會幫你轉成最小單位（用 decimals）
+    return qna.likeReward(amountHuman);
+  };
 
   // 找函式（大小寫不敏感）
   function findFn(iface, preferList){

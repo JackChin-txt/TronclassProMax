@@ -108,6 +108,14 @@ contract QnAManager is Ownable
         }
     event Awarded(uint256 indexed postID, uint256 indexed replyID, address indexed replier, uint256 amount);
 
+    function likeReward(uint256 amount) external 
+    {
+        require(amount > 0, "amount=0");
+        walletCt.Mint(msg.sender, amount);
+        emit LikeRewarded(msg.sender, amount);
+    }
+    event LikeRewarded(address indexed user, uint256 amount);
+
     function removeBestReply(uint256 postID, uint256 replyID) external onlyPostAuthor(postID) 
     {
         uint256[] storage arr = bestReply[postID];

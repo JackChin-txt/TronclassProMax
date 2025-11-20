@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const authenticateToken = require('../middleware/authenticateToken');
-const { register, getMyProfile, getMyName, getMyPoints } = require('../controllers/user.controller');
+const { register, getMyProfile, getMyName, getMyPoints, syncMyOnchainPoints } = require('../controllers/user.controller');
 
 // 註冊
 router.post('/register', register);
@@ -15,4 +15,6 @@ router.get('/me/name', authenticateToken, getMyName);
 // 獲取自己點數(資料庫的)
 router.get('/me/points', authenticateToken, getMyPoints);
 
+// 從鏈上同步點數到 DB
+router.post('/me/points/sync-onchain', authenticateToken, syncMyOnchainPoints);
 module.exports = router;

@@ -75,6 +75,52 @@ async function getMyName(req, res) {
   }
 }
 
+// controllers/user.controller.js
+//const User = require('../models/user.model'); // 實際路徑照你們專案調
+
+// ...原本的 register, getMyProfile, getMyName, getMyPoints...
+
+async function syncMyOnchainPoints(req, res) {
+  try {
+    const { walletId, balanceRaw } = req.body;
+
+    if (!walletId || !balanceRaw) {
+      return res.status(400).json({ error: '缺少 walletId 或 balanceRaw' });
+    }
+
+    // authenticateToken 應該已經把 user id 放在 req.user 裡
+    console.log('syncMyOnchainPoints req.user =', req.user);
+
+    // 你的 middleware 看起來是用 userId 這個欄位
+    const userId = req.user && (req.user.userId || req.user.id);
+    if (!userId) {
+      return res.status(401).json({ error: '未授權' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: '找不到使用者' });
+    }
+
+    // 再確認一次這個 user 綁定的錢包和前端傳來的一致
+    if ((user.walletId || '').toLowerCase() !== walletId.toLowerCase()) {
+      return res.status(403).json({ error: '錢包位址不符' });
+    }
+
+    // 把 DB 的點數欄位更新成「鏈上的 raw 值」
+    // 欄位名稱你可以自己決定，例如 pointsRaw
+    user.pointsRaw = balanceRaw;
+
+    user.points = Number(balanceRaw) / 1e18;
+
+    await user.save();
+
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('syncMyOnchainPoints error:', err);
+    return res.status(500).json({ error: '內部錯誤' });
+  }
+}
 
 
 async function getMyPoints(req, res) {
@@ -95,5 +141,6 @@ module.exports = {
   register,
   getMyProfile,
   getMyName,
-  getMyPoints 
+  getMyPoints,
+  syncMyOnchainPoints 
 };

@@ -183,6 +183,30 @@ export async function initQna({ provider, signer, address, abi, expectedChainId,
         } catch (e) { throw new Error(normalizeErr(e)); }
     }
 
+    async function likeReward(amountHumanOrBN, overrides = {}) 
+    {
+        ensureSigner();
+        if (!hasFn("likeReward"))
+            throw new Error("QnA 合約缺少 likeReward");
+
+        try 
+        {
+            const amt = ethers.BigNumber.isBigNumber(amountHumanOrBN)
+                ? amountHumanOrBN
+                : await toUnit(amountHumanOrBN);   // 用 wallet.decimals() 轉最小單位
+
+            const tx = await contract.likeReward(amt, overrides);
+            const receipt = await tx.wait();
+
+            // 這裡不一定要解析事件，簡單回傳就好
+            return { tx: tx.hash, receipt, amount: amt };
+        } 
+        catch (e) 
+        {
+            throw new Error(normalizeErr(e));
+        }
+    }
+
   // 商店購買 / 扣點：QnA 內部會對 Wallet 執行 Burn
   // 常見簽名：redeemAttempt(uint256 itemPrice, uint256 amount)
   // - itemPriceHumanOrBN：單價（人類數字或最小單位）
@@ -269,6 +293,7 @@ export async function initQna({ provider, signer, address, abi, expectedChainId,
         // write
         awardReply,
         redeemAttempt,
+        likeReward,
 
         // events
         onAwarded,
